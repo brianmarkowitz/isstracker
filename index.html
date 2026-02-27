@@ -723,8 +723,7 @@
 
             function initTelemetryAutopause() {
                 const resumeBtn = document.getElementById('telemetry-resume');
-                const panel = document.getElementById('telemetry-panel');
-                if (!resumeBtn || !panel) return;
+                if (!resumeBtn) return;
 
                 setTimeout(() => {
                     if (telemetryAutoPauseTriggered) return;
@@ -733,11 +732,6 @@
                 }, 10000);
 
                 resumeBtn.addEventListener('click', () => {
-                    setTelemetryPauseState(false, 'manual');
-                });
-
-                panel.addEventListener('click', () => {
-                    if (!telemetryUserPaused) return;
                     setTelemetryPauseState(false, 'manual');
                 });
             }
