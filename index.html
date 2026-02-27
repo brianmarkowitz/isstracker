@@ -476,6 +476,7 @@
             let pollingEnabled = !document.hidden;
             let telemetryUserPaused = false;
             let telemetryAutoPauseTriggered = false;
+            let pollInFlight = false;
 
             // Fetch Astronaut Manifest
             async function fetchCrew() {
@@ -677,7 +678,10 @@
 
             async function runPollLoop() {
                 if (!canPollNow()) return;
+                if (pollInFlight) return;
+                pollInFlight = true;
                 await pollISSData();
+                pollInFlight = false;
                 scheduleNextPoll();
             }
 
