@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aerospace Orbital Command</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- D3.js for the map visualization (Updated to reliable CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <!-- Lucide for iconography -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background-color: #030712; /* gray-950 */
+            color: #00f3ff;
+            overflow: hidden;
+        }
+
+        .neon-border {
+            border: 1px solid #00f3ff;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 10px rgba(0, 243, 255, 0.1);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 5px #00f3ff, 0 0 15px #00f3ff;
+        }
+
+        /* Subtle scanline effect overlay */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.25) 50%,
+                rgba(0, 0, 0, 0.25)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.4;
+        }
+
+        /* D3 Map Styles */
+        .country {
+            fill: #0a192f;
+            stroke: #00f3ff;
+            stroke-width: 0.5;
+            opacity: 0.5;
+            transition: fill 0.3s, opacity 0.3s;
+        }
+        
+        .country:hover {
+            fill: #00f3ff;
+            opacity: 0.3;
+        }
+
+        .iss-marker {
+            fill: #ffffff;
+            filter: drop-shadow(0 0 8px #ffffff) drop-shadow(0 0 15px #00f3ff);
+        }
+
+        .orbit-trail {
+            fill: none;
+            stroke: #00f3ff;
+            stroke-width: 2;
+            stroke-dasharray: 4 4;
+            opacity: 0.6;
+        }
+
+        /* Blueprint grid background for map container */
+        .grid-bg {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+        }
+        
+        /* Custom scrollbar for telemetry terminal */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 243, 255, 0.05); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 243, 255, 0.6); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.2); }
+    </style>
+</head>
+<body class="h-screen w-screen p-2 md:p-4 flex flex-col gap-4 relative">
+    <div class="scanlines"></div>
+
+    <!-- Top Header -->
+    <header class="neon-border rounded-lg p-3 md:p-4 flex flex-col md:flex-row justify-between items-center bg-[#050b14]/90 backdrop-blur z-10 gap-4">
+        <div class="flex items-center gap-4">
+            <i data-lucide="satellite" class="w-8 h-8 text-cyan-300"></i>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold neon-text tracking-widest text-white">AEROSPACE ORBITAL COMMAND</h1>
+                <p class="text-xs text-cyan-400/80 tracking-widest">SAT-TRACK // UPLINK: SECURE</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 md:gap-8">
+            <div class="hidden md:flex flex-col items-end">
+                <span class="text-xs text-cyan-400/70">TARGET</span>
+                <span class="text-lg font-bold text-white tracking-widest">ISS (ZARYA)</span>
+            </div>
+            <div class="hidden md:flex flex-col items-end">
+                <span class="text-xs text-cyan-400/70">NORAD ID</span>
+                <span class="text-lg font-bold text-white tracking-widest">25544</span>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1 neon-border rounded bg-black/50">
+                <div id="status-indicator" class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse"></div>
+                <span id="status-text" class="text-green-500 font-bold tracking-wider text-sm">LIVE</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0 z-10">
+        
+        <!-- Col 1-3: Main Operations -->
+        <div class="lg:col-span-3 flex flex-col gap-4 min-h-0">
+            <!-- Top: Map Visualization -->
+            <div class="flex-[2] neon-border rounded-lg relative overflow-hidden bg-[#02050a] grid-bg flex flex-col shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]">
+                <div class="absolute top-4 left-4 z-20 pointer-events-none flex flex-col gap-2">
+                    <div class="text-sm font-bold tracking-widest bg-black/70 px-3 py-1 rounded neon-border inline-block text-white">GLOBAL TRAJECTORY MAP</div>
+                    <div class="text-xs tracking-widest bg-black/50 px-2 py-1 rounded border border-cyan-900 inline-block">
+                        <span class="text-cyan-600">PROJ:</span> MERCATOR
+                    </div>
+                </div>
+                
+                <div class="absolute bottom-4 left-4 z-20 pointer-events-none bg-black/70 p-2 rounded neon-border">
+                    <div class="text-sm text-cyan-300">LAT: <span id="map-lat" class="text-white">0.0000</span>°</div>
+                    <div class="text-sm text-cyan-300">LON: <span id="map-lon" class="text-white">0.0000</span>°</div>
+                </div>
+
+                <!-- D3 Target Container -->
+                <div id="map-container" class="w-full h-full flex-1 relative cursor-crosshair"></div>
+            </div>
+
+            <!-- Bottom: Stream & Terminal -->
+            <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
+                <!-- Ext Camera Feed -->
+                <div class="neon-border rounded-lg relative overflow-hidden bg-black flex flex-col group">
+                    <div class="absolute top-2 left-2 z-20 pointer-events-none bg-black/70 px-2 py-1 rounded neon-border text-xs flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                        <span class="text-white tracking-widest">NASA LIVE / EXT CAM</span>
+                    </div>
+                    <!-- Real NASA ISS Feed embed -->
+                    <iframe class="w-full h-full pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity" src="https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1&controls=0&modestbranding=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                    <div class="scanlines"></div>
+                </div>
+
+                <!-- Terminal Data Log -->
+                <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-full h-8 bg-gradient-to-b from-[#050b14] to-transparent pointer-events-none z-10 rounded-t-lg"></div>
+                    <div class="absolute bottom-0 right-0 w-full h-8 bg-gradient-to-t from-[#050b14] to-transparent pointer-events-none z-10 rounded-b-lg"></div>
+                    
+                    <div class="flex justify-between items-center mb-2 border-b border-cyan-900 pb-2 z-20">
+                        <h2 class="text-sm text-cyan-400/80 tracking-widest">LIVE TELEMETRY</h2>
+                        <i data-lucide="terminal" class="w-4 h-4 text-cyan-500"></i>
+                    </div>
+                    <div id="telemetry-log" class="flex-1 overflow-y-auto text-xs space-y-1.5 font-mono pr-2 py-2 z-20">
+                        <!-- Logs injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Col 4: Telemetry Sidebar -->
+        <div class="lg:col-span-1 flex flex-col gap-4 min-h-0 overflow-y-auto pr-2 pb-2 custom-scrollbar">
+            
+            <!-- Altitude Widget -->
+            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden group shrink-0">
+                <div class="absolute -right-2 -top-2 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i data-lucide="arrow-up-to-line" class="w-24 h-24"></i>
+                </div>
+                <h2 class="text-sm text-cyan-400/80 tracking-widest mb-2 flex items-center gap-2">
+                    <i data-lucide="mountain" class="w-4 h-4"></i> ALTITUDE
+                </h2>
+                <div class="flex items-end gap-2 z-10">
+                    <span id="alt-val" class="text-4xl md:text-5xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">---.--</span>
+                    <span class="text-lg text-cyan-400 mb-1">km</span>
+                </div>
+                <div class="mt-4 h-1.5 w-full bg-cyan-950 rounded-full overflow-hidden z-10">
+                    <div id="alt-bar" class="h-full bg-cyan-400 shadow-[0_0_10px_#00f3ff] transition-all duration-1000" style="width: 50%;"></div>
+                </div>
+            </div>
+
+            <!-- Velocity Widget -->
+            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden group shrink-0">
+                <div class="absolute -right-2 -top-2 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i data-lucide="gauge" class="w-24 h-24"></i>
+                </div>
+                <h2 class="text-sm text-cyan-400/80 tracking-widest mb-2 flex items-center gap-2">
+                    <i data-lucide="wind" class="w-4 h-4"></i> VELOCITY
+                </h2>
+                <div class="flex items-end gap-2 z-10">
+                    <span id="vel-val" class="text-4xl md:text-5xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">---.--</span>
+                    <span class="text-lg text-cyan-400 mb-1">km/h</span>
+                </div>
+                <div class="mt-4 flex gap-1 z-10 h-1.5">
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse"></div>
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse" style="animation-delay: 100ms"></div>
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse" style="animation-delay: 200ms"></div>
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse" style="animation-delay: 300ms"></div>
+                    <div class="flex-1 bg-cyan-950"></div>
+                </div>
+            </div>
+
+            <!-- Illumination Widget -->
+            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
+                <div class="absolute -right-2 -top-2 p-2 opacity-10" id="vis-icon-bg-wrapper">
+                    <i data-lucide="sun" class="w-24 h-24"></i>
+                </div>
+                <h2 class="text-sm text-cyan-400/80 tracking-widest mb-2 flex items-center gap-2">
+                    <span id="vis-icon-wrapper" data-current="sun"><i data-lucide="sun" class="w-4 h-4"></i></span> ILLUMINATION
+                </h2>
+                <div class="flex items-end gap-2 z-10">
+                    <span id="vis-val" class="text-3xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">UNKNOWN</span>
+                </div>
+            </div>
+
+            <!-- Footprint Widget -->
+            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
+                <div class="absolute -right-2 -top-2 p-2 opacity-10">
+                    <i data-lucide="scan" class="w-24 h-24"></i>
+                </div>
+                <h2 class="text-sm text-cyan-400/80 tracking-widest mb-2 flex items-center gap-2">
+                    <i data-lucide="radar" class="w-4 h-4"></i> RADAR FOOTPRINT
+                </h2>
+                <div class="flex items-end gap-2 z-10">
+                    <span id="footprint-val" class="text-3xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">----</span>
+                    <span class="text-lg text-cyan-400 mb-1">km</span>
+                </div>
+            </div>
+
+            <!-- Crew Roster Widget -->
+            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden flex-1 min-h-[150px]">
+                <div class="absolute -right-2 -top-2 p-2 opacity-10">
+                    <i data-lucide="users" class="w-24 h-24"></i>
+                </div>
+                <div class="flex justify-between items-center mb-3 z-10">
+                    <h2 class="text-sm text-cyan-400/80 tracking-widest flex items-center gap-2">
+                        <i data-lucide="user-check" class="w-4 h-4"></i> MANIFEST
+                    </h2>
+                    <span class="bg-cyan-900/50 text-cyan-300 text-xs px-2 py-0.5 rounded border border-cyan-800"><span id="crew-count">-</span> POB</span>
+                </div>
+                <div id="crew-list" class="flex flex-col gap-2 z-10 overflow-y-auto custom-scrollbar pr-1">
+                    <div class="text-xs text-cyan-600 animate-pulse">Awaiting manifest...</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Wait for the window and external scripts to fully load
+        window.addEventListener('load', () => {
+            
+            // Initialize Lucide Icons
+            lucide.createIcons();
+
+            // ----------------------------------------------------
+            // D3 MAP VISUALIZATION SETUP
+            // ----------------------------------------------------
+            if (typeof d3 === 'undefined') {
+                console.error("D3 library failed to load.");
+                document.getElementById('map-container').innerHTML = "<div class='text-red-500 p-4 text-sm font-mono'>ERR: MAP PROJECTION MODULE (D3.JS) FAILED TO INITIALIZE. CHECK UPLINK.</div>";
+                return;
+            }
+
+            const mapContainer = document.getElementById('map-container');
+            const svg = d3.select("#map-container")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("preserveAspectRatio", "xMidYMid meet");
+
+            const g = svg.append("g");
+            
+            let width = mapContainer.clientWidth;
+            let height = mapContainer.clientHeight;
+            
+            // Define projection (Mercator fits the dashboard aesthetic well)
+            let projection = d3.geoMercator()
+                .scale((width / 2 / Math.PI) * 1.1)
+                .translate([width / 2, height / 1.6]);
+                
+            let path = d3.geoPath().projection(projection);
+
+            // 1. Night Terminator Path
+            const terminatorPath = g.append("path")
+                .attr("class", "terminator")
+                .style("fill", "#000000")
+                .style("opacity", 0.6);
+
+            // 2. Radar Footprint Path
+            const footprintPath = g.append("path")
+                .attr("class", "footprint")
+                .style("fill", "rgba(0, 243, 255, 0.1)")
+                .style("stroke", "rgba(0, 243, 255, 0.4)")
+                .style("stroke-width", "1");
+
+            // Map trailing data setup
+            let trailData = [];
+            const maxTrailLength = 50; 
+            
+            const trailPath = g.append("path").attr("class", "orbit-trail");
+
+            // 3. Future Trajectory Path
+            const futureTrailPath = g.append("path")
+                .attr("class", "future-trail")
+                .style("fill", "none")
+                .style("stroke", "rgba(255, 100, 200, 0.6)")
+                .style("stroke-width", "2")
+                .style("stroke-dasharray", "2 6");
+
+            // State for redrawing dynamically generated paths on window resize
+            let futureCoordsGlobal = [];
+            let lastTerminatorGeo = null;
+            let lastFootprintGeo = null;
+
+            // ISS Marker Group Setup
+            const issGroup = g.append("g").style("display", "none");
+            
+            // Marker Pulse Animation
+            issGroup.append("circle")
+                .attr("r", 20)
+                .attr("fill", "rgba(0, 243, 255, 0.2)")
+                .append("animate")
+                .attr("attributeName", "r")
+                .attr("values", "5;35")
+                .attr("dur", "2s")
+                .attr("repeatCount", "indefinite");
+                
+            issGroup.append("circle")
+                .attr("r", 20)
+                .attr("fill", "none")
+                .attr("stroke", "rgba(0, 243, 255, 0.8)")
+                .attr("stroke-width", "2")
+                .append("animate")
+                .attr("attributeName", "opacity")
+                .attr("values", "1;0")
+                .attr("dur", "2s")
+                .attr("repeatCount", "indefinite");
+
+            // Marker Core - Stylized ISS Icon
+            const issIcon = issGroup.append("g").attr("class", "iss-marker");
+            
+            // Central Truss
+            issIcon.append("rect").attr("x", -12).attr("y", -1).attr("width", 24).attr("height", 2);
+            
+            // Left Solar Arrays
+            issIcon.append("rect").attr("x", -16).attr("y", -5).attr("width", 4).attr("height", 10);
+            issIcon.append("rect").attr("x", -11).attr("y", -5).attr("width", 4).attr("height", 10);
+            
+            // Right Solar Arrays
+            issIcon.append("rect").attr("x", 7).attr("y", -5).attr("width", 4).attr("height", 10);
+            issIcon.append("rect").attr("x", 12).attr("y", -5).attr("width", 4).attr("height", 10);
+            
+            // Central Modules (Hab/Labs)
+            issIcon.append("rect").attr("x", -2).attr("y", -7).attr("width", 4).attr("height", 14).attr("rx", 1);
+
+            // Fetch and draw GeoJSON
+            d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(data => {
+                g.selectAll("path.country")
+                    .data(data.features)
+                    .enter()
+                    .append("path")
+                    .attr("class", "country")
+                    .attr("d", path);
+            }).catch(err => {
+                console.error("Failed to load map data:", err);
+            });
+
+            // Add Zoom & Pan
+            const zoom = d3.zoom()
+                .scaleExtent([1, 8])
+                .translateExtent([[-width, -height], [width * 2, height * 2]])
+                .on("zoom", (event) => g.attr("transform", event.transform));
+            svg.call(zoom);
+
+            // Handle Window Resizing gracefully
+            window.addEventListener('resize', () => {
+                width = mapContainer.clientWidth;
+                height = mapContainer.clientHeight;
+                projection.translate([width / 2, height / 1.6]).scale((width / 2 / Math.PI) * 1.1);
+                g.selectAll("path.country").attr("d", path);
+                
+                renderLineSafe(trailData, trailPath);
+                
+                // Safely redraw the dynamically fetched shapes on resize
+                if (futureCoordsGlobal.length > 0) renderLineSafe(futureCoordsGlobal, futureTrailPath);
+                if (lastTerminatorGeo) terminatorPath.attr("d", path);
+                if (lastFootprintGeo) footprintPath.attr("d", path);
+                
+                if (trailData.length > 0) {
+                    const latest = trailData[trailData.length-1];
+                    const coords = projection(latest);
+                    if(coords) issGroup.attr("transform", `translate(${coords[0]},${coords[1]})`);
+                }
+            });
+
+            // Antimeridian-safe line renderer
+            function renderLineSafe(coords, pathElement) {
+                let segments = [];
+                let current = [];
+                for(let i=0; i<coords.length; i++) {
+                    if(i > 0 && Math.abs(coords[i][0] - coords[i-1][0]) > 180) {
+                        segments.push(current);
+                        current = [];
+                    }
+                    current.push(coords[i]);
+                }
+                if(current.length > 0) segments.push(current);
+                
+                const lineGen = d3.line().x(d => projection(d)[0]).y(d => projection(d)[1]).curve(d3.curveBasis);
+                let dString = segments.map(seg => lineGen(seg)).join(" ");
+                pathElement.attr("d", dString);
+            }
+
+            // Calculate exact anti-solar point for the night terminator
+            function getAntiSolarPoint(date) {
+                const hoursUTC = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+                let solarLon = 180 - (hoursUTC * 15);
+                
+                const start = new Date(date.getFullYear(), 0, 0);
+                const diff = date - start;
+                const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const declination = -23.44 * Math.cos((360 / 365.24) * (dayOfYear + 10) * (Math.PI / 180));
+
+                let antiLon = solarLon > 0 ? solarLon - 180 : solarLon + 180;
+                return [antiLon, -declination];
+            }
+
+
+            // ----------------------------------------------------
+            // LOGIC & DATA HANDLING
+            // ----------------------------------------------------
+            const ui = {
+                altVal: document.getElementById('alt-val'),
+                altBar: document.getElementById('alt-bar'),
+                velVal: document.getElementById('vel-val'),
+                visVal: document.getElementById('vis-val'),
+                visIconWrapper: document.getElementById('vis-icon-wrapper'),
+                visIconBgWrapper: document.getElementById('vis-icon-bg-wrapper'),
+                footprintVal: document.getElementById('footprint-val'),
+                mapLat: document.getElementById('map-lat'),
+                mapLon: document.getElementById('map-lon'),
+                log: document.getElementById('telemetry-log'),
+                statusText: document.getElementById('status-text'),
+                statusIndicator: document.getElementById('status-indicator'),
+            };
+
+            let isLive = true;
+            let mockLon = 0; // State for fallback simulation
+            let lastFutureUpdate = 0;
+
+            // Fetch Astronaut Manifest
+            async function fetchCrew() {
+                try {
+                    // Note: Open-Notify is HTTP. Browsers may block it. If so, fallback fires.
+                    const res = await fetch('http://api.open-notify.org/astros.json');
+                    const data = await res.json();
+                    updateCrewUI(data.people.filter(p => p.craft === 'ISS'));
+                } catch(err) {
+                    addLog("WARN: LIVE MANIFEST UPLINK BLOCKED. USING CACHED.", "warn");
+                    // Fallback to recent known crew in case of mixed-content blocking
+                    updateCrewUI([
+                        {name: "Oleg Kononenko"}, {name: "Nikolai Chub"}, 
+                        {name: "Tracy Caldwell Dyson"}, {name: "Matthew Dominick"},
+                        {name: "Michael Barratt"}, {name: "Jeanette Epps"},
+                        {name: "Alexander Grebenkin"}
+                    ]);
+                }
+            }
+            
+            function updateCrewUI(crew) {
+                const crewList = document.getElementById('crew-list');
+                crewList.innerHTML = '';
+                document.getElementById('crew-count').innerText = crew.length;
+                crew.forEach(person => {
+                    crewList.innerHTML += `<div class="flex items-center gap-2 text-[11px] text-white bg-cyan-950/40 p-1.5 rounded border border-cyan-900/60"><i data-lucide="user" class="w-3 h-3 text-cyan-500"></i>${person.name.toUpperCase()}</div>`;
+                });
+                lucide.createIcons();
+            }
+
+            // Fetch Trajectory Prediction
+            async function fetchFutureTrajectory(currentTs) {
+                // Throttle updates to save API hits (update every 5 mins)
+                if (currentTs - lastFutureUpdate < 300) return;
+                
+                try {
+                    let timestamps = [];
+                    for(let i=1; i<=15; i++) timestamps.push(currentTs + (i * 300)); // Every 5 mins for 75 mins
+                    const res = await fetch(`https://api.wheretheiss.at/v1/satellites/25544/positions?timestamps=${timestamps.join(',')}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    
+                    let futureCoords = data.map(d => [d.longitude, d.latitude]);
+                    if (trailData.length > 0) futureCoords.unshift(trailData[trailData.length-1]);
+                    
+                    futureCoordsGlobal = futureCoords;
+                    renderLineSafe(futureCoordsGlobal, futureTrailPath);
+                    lastFutureUpdate = currentTs;
+                    addLog("SYS: TRAJECTORY PREDICTION UPDATED");
+                } catch (e) {
+                    console.error("Future trajectory failed", e);
+                }
+            }
+
+            function addLog(msg, type = 'info') {
+                const entry = document.createElement('div');
+                const time = new Date().toISOString().split('T')[1].substring(0, 8);
+                let color = type === 'error' ? 'text-red-400' : type === 'warn' ? 'text-yellow-400' : 'text-cyan-400';
+                
+                entry.innerHTML = `<span class="text-gray-600 mr-2">[${time}]</span><span class="${color}">${msg}</span>`;
+                ui.log.appendChild(entry);
+                ui.log.scrollTop = ui.log.scrollHeight; // Auto-scroll
+                if (ui.log.childElementCount > 40) ui.log.removeChild(ui.log.firstChild);
+            }
+
+            function setConnectionStatus(live) {
+                isLive = live;
+                ui.statusText.innerText = live ? "LIVE" : "SIMULATION";
+                ui.statusText.className = live ? "text-green-500 font-bold tracking-wider text-sm" : "text-yellow-500 font-bold tracking-wider text-sm";
+                ui.statusIndicator.className = live 
+                    ? "w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse" 
+                    : "w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_#eab308] animate-pulse";
+            }
+
+            function renderDashboard(data) {
+                const lat = data.latitude;
+                const lon = data.longitude;
+                const alt = data.altitude;
+                const vel = data.velocity;
+
+                // Numbers
+                ui.altVal.innerText = alt.toFixed(2);
+                ui.velVal.innerText = vel.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                ui.mapLat.innerText = lat.toFixed(4).padStart(8, ' ');
+                ui.mapLon.innerText = lon.toFixed(4).padStart(9, ' ');
+
+                // New Real Data Fields
+                if (data.visibility) {
+                    const isDay = data.visibility === 'daylight';
+                    ui.visVal.innerText = data.visibility.toUpperCase();
+                    ui.visVal.className = `text-3xl font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] ${isDay ? 'text-yellow-400' : 'text-indigo-400'}`;
+                    
+                    // Update Lucide icons dynamically by swapping the HTML entirely 
+                    const iconName = isDay ? 'sun' : 'moon';
+                    if (ui.visIconWrapper.dataset.current !== iconName) {
+                        ui.visIconWrapper.dataset.current = iconName;
+                        ui.visIconWrapper.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
+                        ui.visIconBgWrapper.innerHTML = `<i data-lucide="${iconName}" class="w-24 h-24"></i>`;
+                        lucide.createIcons();
+                    }
+                }
+                
+                if (data.footprint) {
+                    ui.footprintVal.innerText = (data.footprint).toLocaleString('en-US', {maximumFractionDigits: 0});
+                }
+
+                // Altitude Progress Bar (~400km to 430km bounds)
+                const altPercent = Math.max(0, Math.min(100, ((alt - 390) / 40) * 100));
+                ui.altBar.style.width = `${altPercent}%`;
+
+                // Calculate Day/Night Terminator
+                const antiSolar = getAntiSolarPoint(new Date(data.timestamp * 1000));
+                lastTerminatorGeo = d3.geoCircle().center(antiSolar).radius(90)();
+                terminatorPath.datum(lastTerminatorGeo).attr("d", path);
+
+                // Draw Radar Footprint
+                if (data.footprint) {
+                    const footprintRadiusDeg = (data.footprint / 2) / 111.32; // Convert diameter km to radius degrees
+                    lastFootprintGeo = d3.geoCircle().center([lon, lat]).radius(footprintRadiusDeg)();
+                    footprintPath.datum(lastFootprintGeo).attr("d", path);
+                }
+
+                // Plot Future Trajectory
+                fetchFutureTrajectory(data.timestamp);
+
+                // D3 Projection for ISS
+                const coords = projection([lon, lat]);
+                if (coords) {
+                    issGroup.style("display", "block")
+                        .transition()
+                        .duration(1900)
+                        .attr("transform", `translate(${coords[0]},${coords[1]})`);
+                    
+                    // Keep trail history
+                    trailData.push([lon, lat]);
+                    if (trailData.length > maxTrailLength) trailData.shift();
+                    
+                    renderLineSafe(trailData, trailPath);
+                }
+            }
+
+            async function pollISSData() {
+                try {
+                    // Live Public API provided by wheretheiss.at
+                    const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                    if (!res.ok) throw new Error('API limits reached');
+                    const data = await res.json();
+                    
+                    if(!isLive) setConnectionStatus(true);
+                    renderDashboard(data);
+                    
+                    // Use actual timestamp provided by the ISS API
+                    const timeStr = new Date(data.timestamp * 1000).toLocaleTimeString('en-US', { timeZone: 'UTC' });
+                    addLog(`UPLINK RECV: LAT ${data.latitude.toFixed(4)} LON ${data.longitude.toFixed(4)} @ ${timeStr} UTC`);
+                    
+                } catch (err) {
+                    // Failsafe Mock Mode
+                    if (isLive) addLog("ERR: API CONNECTION LOST. SWITCHING TO SIMULATION.", "error");
+                    setConnectionStatus(false);
+                    
+                    mockLon += 0.08; 
+                    if (mockLon > 180) mockLon = -180;
+                    let mockLat = 50 * Math.sin(mockLon * Math.PI / 180); // Sinusoidal orbit approx
+                    
+                    const mockData = {
+                        latitude: mockLat,
+                        longitude: mockLon,
+                        altitude: 415 + Math.random() * 2 - 1,
+                        velocity: 27600 + Math.random() * 15 - 7,
+                        visibility: 'unknown',
+                        footprint: 4500,
+                        timestamp: Math.floor(Date.now() / 1000) // Essential for the shadow math
+                    };
+                    
+                    renderDashboard(mockData);
+                    addLog(`SIM GEN: LAT ${mockLat.toFixed(4)} LON ${mockLon.toFixed(4)}`, "warn");
+                }
+            }
+
+            // ----------------------------------------------------
+            // BOOT SEQUENCE
+            // ----------------------------------------------------
+            addLog("SYSTEM BOOT SEQUENCE INITIATED...");
+            addLog("INITIALIZING D3.JS PROJECTION...");
+            addLog("ESTABLISHING UPLINK TO ISS (NORAD 25544)...");
+            
+            fetchCrew();
+            pollISSData();
+            setInterval(pollISSData, 2000); // 2 second poll rate is within API limits
+
+        });
+    </script>
+</body>
+</html>
