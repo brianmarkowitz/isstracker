@@ -390,17 +390,30 @@
             });
 
             // Add Zoom & Pan
+            const INITIAL_MAP_ZOOM = 1.2;
+            function getCenteredZoomTransform(scale) {
+                return d3.zoomIdentity
+                    .translate((width - width * scale) / 2, (height - height * scale) / 2)
+                    .scale(scale);
+            }
+
+            let userAdjustedZoom = false;
             const zoom = d3.zoom()
                 .scaleExtent([1, 8])
                 .translateExtent([[-width, -height], [width * 2, height * 2]])
-                .on("zoom", (event) => g.attr("transform", event.transform));
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                    if (event.sourceEvent) userAdjustedZoom = true;
+                });
             svg.call(zoom);
+            svg.call(zoom.transform, getCenteredZoomTransform(INITIAL_MAP_ZOOM));
 
             // Handle Window Resizing gracefully
             window.addEventListener('resize', () => {
                 width = mapContainer.clientWidth;
                 height = mapContainer.clientHeight;
                 fitProjection();
+                zoom.translateExtent([[-width, -height], [width * 2, height * 2]]);
                 g.selectAll("path.country").attr("d", path);
                 
                 renderLineSafe(trailData, trailPath);
@@ -414,6 +427,10 @@
                     const latest = trailData[trailData.length-1];
                     const coords = projection(latest);
                     if(coords) issGroup.attr("transform", `translate(${coords[0]},${coords[1]})`);
+                }
+
+                if (!userAdjustedZoom) {
+                    svg.call(zoom.transform, getCenteredZoomTransform(INITIAL_MAP_ZOOM));
                 }
             });
 
