@@ -160,10 +160,7 @@
                 </div>
 
                 <!-- Terminal Data Log -->
-                <div id="telemetry-panel" class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden">
-                    <button id="telemetry-resume" type="button" class="hidden absolute inset-0 z-30 bg-black/55 text-cyan-200 tracking-widest text-xs md:text-sm px-6 text-center">
-                        TELEMETRY PAUSED TO SAVE API CALLS • CLICK TO RESUME
-                    </button>
+                <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-full h-8 bg-gradient-to-b from-[#050b14] to-transparent pointer-events-none z-10 rounded-t-lg"></div>
                     <div class="absolute bottom-0 right-0 w-full h-8 bg-gradient-to-t from-[#050b14] to-transparent pointer-events-none z-10 rounded-b-lg"></div>
                     
@@ -476,17 +473,16 @@
             let lastFutureBucket = 0;
 
             // Polling/backoff controls
-            const BASE_POLL_INTERVAL_MS = 5000;
+            const SLOW_POLL_INTERVAL_MS = 60000;
+            const LIVE_POLL_INTERVAL_MS = 5000;
+            const LIVE_BOOST_DURATION_MS = 60000;
             const MAX_POLL_INTERVAL_MS = 120000;
-            const TELEMETRY_INITIAL_AUTO_PAUSE_MS = 5000;
-            const TELEMETRY_RESUME_AUTO_PAUSE_MS = 120000;
             let consecutivePollFailures = 0;
             let pollTimeoutId = null;
-            let telemetryAutoPauseId = null;
             let pollingEnabled = !document.hidden;
-            let telemetryUserPaused = false;
             let pollInFlight = false;
-            let telemetryActiveWindowMs = TELEMETRY_INITIAL_AUTO_PAUSE_MS;
+            let liveBoostUntilMs = 0;
+            let liveBoostTimeoutId = null;
 
             // Fetch Astronaut Manifest
             async function fetchCrew() {
@@ -552,6 +548,64 @@
                 ui.log.appendChild(entry);
                 ui.log.scrollTop = ui.log.scrollHeight; // Auto-scroll
                 if (ui.log.childElementCount > 40) ui.log.removeChild(ui.log.firstChild);
+            }
+
+            function addActionLog(msg, buttonLabel, onClick, type = 'info') {
+                const entry = document.createElement('div');
+                const time = new Date().toISOString().split('T')[1].substring(0, 8);
+                let color = type === 'error' ? 'text-red-400' : type === 'warn' ? 'text-yellow-400' : 'text-cyan-400';
+
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'text-gray-600 mr-2';
+                timeSpan.textContent = `[${time}]`;
+
+                const msgSpan = document.createElement('span');
+                msgSpan.className = color;
+                msgSpan.textContent = `${msg} `;
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'text-cyan-300 underline hover:text-cyan-100 focus:outline-none';
+                button.textContent = buttonLabel;
+                button.addEventListener('click', onClick);
+
+                entry.appendChild(timeSpan);
+                entry.appendChild(msgSpan);
+                entry.appendChild(button);
+
+                ui.log.appendChild(entry);
+                ui.log.scrollTop = ui.log.scrollHeight;
+                if (ui.log.childElementCount > 40) ui.log.removeChild(ui.log.firstChild);
+            }
+
+            function isLiveBoostActive() {
+                return Date.now() < liveBoostUntilMs;
+            }
+
+            function getCurrentPollInterval() {
+                return isLiveBoostActive() ? LIVE_POLL_INTERVAL_MS : SLOW_POLL_INTERVAL_MS;
+            }
+
+            function postTelemetryThrottleMessage() {
+                addActionLog(
+                    "SYS: TELEMETRY THROTTLED TO 1 UPDATE/MIN TO REDUCE API LOAD.",
+                    "CLICK HERE FOR LIVE TELEMETRY (1 MIN)",
+                    activateLiveTelemetryWindow,
+                    "warn"
+                );
+            }
+
+            function activateLiveTelemetryWindow() {
+                liveBoostUntilMs = Date.now() + LIVE_BOOST_DURATION_MS;
+                clearTimeout(liveBoostTimeoutId);
+                liveBoostTimeoutId = setTimeout(() => {
+                    addLog("SYS: LIVE TELEMETRY WINDOW ENDED. BACK TO 1 UPDATE/MIN.", "warn");
+                    postTelemetryThrottleMessage();
+                }, LIVE_BOOST_DURATION_MS + 50);
+
+                addLog("SYS: LIVE TELEMETRY ENABLED FOR 1 MINUTE.", "info");
+                clearTimeout(pollTimeoutId);
+                runPollLoop();
             }
 
             function setConnectionStatus(live) {
@@ -631,12 +685,13 @@
             }
 
             function getNextPollDelay() {
-                if (consecutivePollFailures === 0) return BASE_POLL_INTERVAL_MS;
-                return Math.min(MAX_POLL_INTERVAL_MS, BASE_POLL_INTERVAL_MS * (2 ** Math.min(consecutivePollFailures, 5)));
+                const baseInterval = getCurrentPollInterval();
+                if (consecutivePollFailures === 0) return baseInterval;
+                return Math.min(MAX_POLL_INTERVAL_MS, baseInterval * (2 ** Math.min(consecutivePollFailures, 5)));
             }
 
             function canPollNow() {
-                return pollingEnabled && !telemetryUserPaused;
+                return pollingEnabled;
             }
 
             function scheduleNextPoll() {
@@ -705,53 +760,8 @@
 
                 pollingEnabled = true;
                 addLog("SYS: TAB ACTIVE. TELEMETRY UPLINK AVAILABLE.", "info");
-                if (telemetryUserPaused) return;
                 runPollLoop();
             });
-
-            function setTelemetryPauseState(paused, reason = 'manual') {
-                telemetryUserPaused = paused;
-                const resumeBtn = document.getElementById('telemetry-resume');
-                if (!resumeBtn) return;
-
-                clearTimeout(pollTimeoutId);
-                clearTimeout(telemetryAutoPauseId);
-
-                if (paused) {
-                    resumeBtn.classList.remove('hidden');
-                    if (reason === 'auto') {
-                        const windowLabel = telemetryActiveWindowMs >= 60000
-                            ? `${Math.round(telemetryActiveWindowMs / 60000)}m`
-                            : `${Math.round(telemetryActiveWindowMs / 1000)}s`;
-                        addLog(`SYS: TELEMETRY AUTO-PAUSED AFTER ${windowLabel}. CLICK PANEL TO RESUME.`, "warn");
-                    } else {
-                        addLog("SYS: TELEMETRY PAUSED.", "warn");
-                    }
-                    return;
-                }
-
-                resumeBtn.classList.add('hidden');
-                addLog("SYS: TELEMETRY RESUMED BY USER.", "info");
-                telemetryActiveWindowMs = TELEMETRY_RESUME_AUTO_PAUSE_MS;
-                telemetryAutoPauseId = setTimeout(() => {
-                    if (!telemetryUserPaused) setTelemetryPauseState(true, 'auto');
-                }, TELEMETRY_RESUME_AUTO_PAUSE_MS);
-                if (canPollNow()) runPollLoop();
-            }
-
-            function initTelemetryAutopause() {
-                const resumeBtn = document.getElementById('telemetry-resume');
-                if (!resumeBtn) return;
-
-                telemetryActiveWindowMs = TELEMETRY_INITIAL_AUTO_PAUSE_MS;
-                telemetryAutoPauseId = setTimeout(() => {
-                    setTelemetryPauseState(true, 'auto');
-                }, TELEMETRY_INITIAL_AUTO_PAUSE_MS);
-
-                resumeBtn.addEventListener('click', () => {
-                    setTelemetryPauseState(false, 'manual');
-                });
-            }
 
             // ----------------------------------------------------
             // BOOT SEQUENCE
@@ -759,9 +769,9 @@
             addLog("SYSTEM BOOT SEQUENCE INITIATED...");
             addLog("INITIALIZING D3.JS PROJECTION...");
             addLog("ESTABLISHING UPLINK TO ISS (NORAD 25544)...");
+            postTelemetryThrottleMessage();
             
             fetchCrew();
-            initTelemetryAutopause();
             runPollLoop();
 
         });

@@ -54,10 +54,10 @@ If NASA changes stream IDs again, update the iframe `src` in `index.html`.
 
 To reduce upstream API load and avoid rate-limit spikes:
 
-- Telemetry polling runs every 5 seconds (not every 2 seconds)
+- Telemetry polling runs at 1 update/minute by default
 - Polling automatically pauses when the browser tab is hidden
 - Polling uses exponential backoff after failures (up to 120 seconds)
 - Client calls go through Vercel API routes with cache headers so users share responses
 - Future trajectory requests are aligned to 5-minute buckets for better cache hit rate
 
-Live telemetry polling now auto-runs for 5 seconds on initial page load, then pauses. When the user clicks resume, it runs for 2 minutes and auto-pauses again.
+Telemetry log includes a clickable action to enable live telemetry (5-second polling) for 1 minute, then it automatically returns to 1 update/minute.
