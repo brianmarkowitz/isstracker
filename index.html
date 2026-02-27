@@ -293,10 +293,17 @@
             let width = mapContainer.clientWidth;
             let height = mapContainer.clientHeight;
             
-            // Define projection (Mercator fits the dashboard aesthetic well)
-            let projection = d3.geoMercator()
-                .scale((width / 2 / Math.PI) * 1.1)
-                .translate([width / 2, height / 1.6]);
+            // Define projection and fit the full world into the viewport.
+            // This keeps ISS marker positions (including high southern latitudes) on-screen.
+            let projection = d3.geoMercator();
+            const projectionPadding = 12;
+            function fitProjection() {
+                projection.fitExtent(
+                    [[projectionPadding, projectionPadding], [width - projectionPadding, height - projectionPadding]],
+                    { type: "Sphere" }
+                );
+            }
+            fitProjection();
                 
             let path = d3.geoPath().projection(projection);
 
@@ -396,7 +403,7 @@
             window.addEventListener('resize', () => {
                 width = mapContainer.clientWidth;
                 height = mapContainer.clientHeight;
-                projection.translate([width / 2, height / 1.6]).scale((width / 2 / Math.PI) * 1.1);
+                fitProjection();
                 g.selectAll("path.country").attr("d", path);
                 
                 renderLineSafe(trailData, trailPath);
