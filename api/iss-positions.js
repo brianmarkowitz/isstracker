@@ -23,7 +23,9 @@ module.exports = async (req, res) => {
     const data = await upstream.json();
 
     // Trajectory snapshots are computed in 5-minute buckets; cache a bit longer.
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Cache-Control', 'max-age=0, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('CDN-Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Vercel-CDN-Cache-Control', 's-maxage=300, stale-while-revalidate=600');
     res.status(200).json(data);
   } catch (error) {
     res.status(502).json({ error: 'ISS trajectory proxy request failed' });
