@@ -54,10 +54,10 @@ If NASA changes stream IDs again, update the iframe `src` in `index.html`.
 
 To reduce upstream API load and avoid rate-limit spikes:
 
-- Telemetry polling runs at 1 update/minute by default
+- ISS visuals (map, altitude, velocity, footprint) poll every 5 seconds
 - Polling automatically pauses when the browser tab is hidden
 - Polling uses exponential backoff after failures (up to 120 seconds)
 - Client calls go through Vercel API routes with cache headers so users share responses
 - Future trajectory requests are aligned to 5-minute buckets for better cache hit rate
 
-Telemetry log includes a clickable action to enable live telemetry (5-second polling) for 1 minute, then it automatically returns to 1 update/minute.
+Telemetry log (`UPLINK RECV` lines) is slowed to 1 update/minute by default. A clickable log action enables live telemetry logging for 1 minute, then returns to 1 update/minute.

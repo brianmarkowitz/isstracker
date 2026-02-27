@@ -464,16 +464,17 @@
             let lastFutureBucket = 0;
 
             // Polling/backoff controls
-            const SLOW_POLL_INTERVAL_MS = 60000;
-            const LIVE_POLL_INTERVAL_MS = 5000;
-            const LIVE_BOOST_DURATION_MS = 60000;
+            const VISUAL_POLL_INTERVAL_MS = 5000;
+            const LOG_THROTTLE_INTERVAL_MS = 60000;
+            const LIVE_LOG_DURATION_MS = 60000;
             const MAX_POLL_INTERVAL_MS = 120000;
             let consecutivePollFailures = 0;
             let pollTimeoutId = null;
             let pollingEnabled = !document.hidden;
             let pollInFlight = false;
-            let liveBoostUntilMs = 0;
-            let liveBoostTimeoutId = null;
+            let liveLogUntilMs = 0;
+            let liveLogTimeoutId = null;
+            let lastTelemetryLogAtMs = 0;
 
             // Fetch Astronaut Manifest
             async function fetchCrew() {
@@ -569,17 +570,18 @@
                 if (ui.log.childElementCount > 40) ui.log.removeChild(ui.log.firstChild);
             }
 
-            function isLiveBoostActive() {
-                return Date.now() < liveBoostUntilMs;
+            function isLiveLogActive() {
+                return Date.now() < liveLogUntilMs;
             }
 
-            function getCurrentPollInterval() {
-                return isLiveBoostActive() ? LIVE_POLL_INTERVAL_MS : SLOW_POLL_INTERVAL_MS;
+            function shouldEmitTelemetryLog() {
+                if (isLiveLogActive()) return true;
+                return (Date.now() - lastTelemetryLogAtMs) >= LOG_THROTTLE_INTERVAL_MS;
             }
 
             function postTelemetryThrottleMessage() {
                 addActionLog(
-                    "SYS: TELEMETRY THROTTLED TO 1 UPDATE/MIN TO REDUCE API LOAD.",
+                    "SYS: TELEMETRY LOGS SLOWED TO 1 UPDATE/MIN.",
                     "CLICK HERE FOR LIVE TELEMETRY (1 MIN)",
                     activateLiveTelemetryWindow,
                     "warn"
@@ -587,16 +589,14 @@
             }
 
             function activateLiveTelemetryWindow() {
-                liveBoostUntilMs = Date.now() + LIVE_BOOST_DURATION_MS;
-                clearTimeout(liveBoostTimeoutId);
-                liveBoostTimeoutId = setTimeout(() => {
-                    addLog("SYS: LIVE TELEMETRY WINDOW ENDED. BACK TO 1 UPDATE/MIN.", "warn");
+                liveLogUntilMs = Date.now() + LIVE_LOG_DURATION_MS;
+                clearTimeout(liveLogTimeoutId);
+                liveLogTimeoutId = setTimeout(() => {
+                    addLog("SYS: LIVE TELEMETRY LOG WINDOW ENDED. BACK TO 1 UPDATE/MIN.", "warn");
                     postTelemetryThrottleMessage();
-                }, LIVE_BOOST_DURATION_MS + 50);
+                }, LIVE_LOG_DURATION_MS + 50);
 
-                addLog("SYS: LIVE TELEMETRY ENABLED FOR 1 MINUTE.", "info");
-                clearTimeout(pollTimeoutId);
-                runPollLoop();
+                addLog("SYS: LIVE TELEMETRY LOGGING ENABLED FOR 1 MINUTE.", "info");
             }
 
             function setConnectionStatus(live) {
@@ -676,9 +676,8 @@
             }
 
             function getNextPollDelay() {
-                const baseInterval = getCurrentPollInterval();
-                if (consecutivePollFailures === 0) return baseInterval;
-                return Math.min(MAX_POLL_INTERVAL_MS, baseInterval * (2 ** Math.min(consecutivePollFailures, 5)));
+                if (consecutivePollFailures === 0) return VISUAL_POLL_INTERVAL_MS;
+                return Math.min(MAX_POLL_INTERVAL_MS, VISUAL_POLL_INTERVAL_MS * (2 ** Math.min(consecutivePollFailures, 5)));
             }
 
             function canPollNow() {
@@ -703,8 +702,11 @@
                     consecutivePollFailures = 0;
                     
                     // Use actual timestamp provided by the ISS API
-                    const timeStr = new Date(data.timestamp * 1000).toLocaleTimeString('en-US', { timeZone: 'UTC' });
-                    addLog(`UPLINK RECV: LAT ${data.latitude.toFixed(4)} LON ${data.longitude.toFixed(4)} @ ${timeStr} UTC`);
+                    if (shouldEmitTelemetryLog()) {
+                        const timeStr = new Date(data.timestamp * 1000).toLocaleTimeString('en-US', { timeZone: 'UTC' });
+                        addLog(`UPLINK RECV: LAT ${data.latitude.toFixed(4)} LON ${data.longitude.toFixed(4)} @ ${timeStr} UTC`);
+                        lastTelemetryLogAtMs = Date.now();
+                    }
                     
                 } catch (err) {
                     consecutivePollFailures += 1;
