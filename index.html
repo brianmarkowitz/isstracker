@@ -52,8 +52,15 @@
         /* D3 Map Styles */
         .country {
             fill: #0a192f;
-            stroke: none;
-            opacity: 0.72;
+            stroke: #00f3ff;
+            stroke-width: 0.5;
+            opacity: 0.5;
+            transition: fill 0.3s, opacity 0.3s;
+        }
+        
+        .country:hover {
+            fill: #00f3ff;
+            opacity: 0.3;
         }
 
         .iss-marker {
@@ -283,13 +290,15 @@
             let width = mapContainer.clientWidth;
             let height = mapContainer.clientHeight;
             
-            // Define projection to fill width and crop vertically for a tighter, no-margin look.
-            let projection = d3.geoMercator().center([0, 0]);
-            const projectionZoom = 1.15;
+            // Define projection and fit the full world into the viewport.
+            // This keeps ISS marker positions (including high southern latitudes) on-screen.
+            let projection = d3.geoMercator();
+            const projectionPadding = 12;
             function fitProjection() {
-                projection
-                    .scale((width / (2 * Math.PI)) * projectionZoom)
-                    .translate([width / 2, height / 2]);
+                projection.fitExtent(
+                    [[projectionPadding, projectionPadding], [width - projectionPadding, height - projectionPadding]],
+                    { type: "Sphere" }
+                );
             }
             fitProjection();
                 
@@ -332,19 +341,19 @@
             
             // Marker Pulse Animation
             issGroup.append("circle")
-                .attr("r", 12)
+                .attr("r", 20)
                 .attr("fill", "rgba(0, 243, 255, 0.2)")
                 .append("animate")
                 .attr("attributeName", "r")
-                .attr("values", "3;20")
+                .attr("values", "5;35")
                 .attr("dur", "2s")
                 .attr("repeatCount", "indefinite");
                 
             issGroup.append("circle")
-                .attr("r", 12)
+                .attr("r", 20)
                 .attr("fill", "none")
                 .attr("stroke", "rgba(0, 243, 255, 0.8)")
-                .attr("stroke-width", "1.5")
+                .attr("stroke-width", "2")
                 .append("animate")
                 .attr("attributeName", "opacity")
                 .attr("values", "1;0")
@@ -355,18 +364,18 @@
             const issIcon = issGroup.append("g").attr("class", "iss-marker");
             
             // Central Truss
-            issIcon.append("rect").attr("x", -8).attr("y", -1).attr("width", 16).attr("height", 2);
+            issIcon.append("rect").attr("x", -12).attr("y", -1).attr("width", 24).attr("height", 2);
             
             // Left Solar Arrays
-            issIcon.append("rect").attr("x", -11).attr("y", -4).attr("width", 3).attr("height", 8);
-            issIcon.append("rect").attr("x", -7).attr("y", -4).attr("width", 3).attr("height", 8);
+            issIcon.append("rect").attr("x", -16).attr("y", -5).attr("width", 4).attr("height", 10);
+            issIcon.append("rect").attr("x", -11).attr("y", -5).attr("width", 4).attr("height", 10);
             
             // Right Solar Arrays
-            issIcon.append("rect").attr("x", 4).attr("y", -4).attr("width", 3).attr("height", 8);
-            issIcon.append("rect").attr("x", 8).attr("y", -4).attr("width", 3).attr("height", 8);
+            issIcon.append("rect").attr("x", 7).attr("y", -5).attr("width", 4).attr("height", 10);
+            issIcon.append("rect").attr("x", 12).attr("y", -5).attr("width", 4).attr("height", 10);
             
             // Central Modules (Hab/Labs)
-            issIcon.append("rect").attr("x", -1.5).attr("y", -5).attr("width", 3).attr("height", 10).attr("rx", 1);
+            issIcon.append("rect").attr("x", -2).attr("y", -7).attr("width", 4).attr("height", 14).attr("rx", 1);
 
             // Fetch and draw GeoJSON
             d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(data => {
