@@ -160,7 +160,10 @@
                 </div>
 
                 <!-- Terminal Data Log -->
-                <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden">
+                <div id="telemetry-panel" class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden">
+                    <button id="telemetry-resume" type="button" class="hidden absolute inset-0 z-30 bg-black/55 text-cyan-200 tracking-widest text-xs md:text-sm px-6 text-center">
+                        TELEMETRY PAUSED TO SAVE API CALLS • CLICK TO RESUME
+                    </button>
                     <div class="absolute top-0 right-0 w-full h-8 bg-gradient-to-b from-[#050b14] to-transparent pointer-events-none z-10 rounded-t-lg"></div>
                     <div class="absolute bottom-0 right-0 w-full h-8 bg-gradient-to-t from-[#050b14] to-transparent pointer-events-none z-10 rounded-b-lg"></div>
                     
@@ -463,7 +466,16 @@
 
             let isLive = true;
             let mockLon = 0; // State for fallback simulation
-            let lastFutureUpdate = 0;
+            let lastFutureBucket = 0;
+
+            // Polling/backoff controls
+            const BASE_POLL_INTERVAL_MS = 8000;
+            const MAX_POLL_INTERVAL_MS = 120000;
+            let consecutivePollFailures = 0;
+            let pollTimeoutId = null;
+            let pollingEnabled = !document.hidden;
+            let telemetryUserPaused = false;
+            let telemetryAutoPauseTriggered = false;
 
             // Fetch Astronaut Manifest
             async function fetchCrew() {
@@ -496,13 +508,15 @@
 
             // Fetch Trajectory Prediction
             async function fetchFutureTrajectory(currentTs) {
-                // Throttle updates to save API hits (update every 5 mins)
-                if (currentTs - lastFutureUpdate < 300) return;
+                // Align to 5-minute buckets so all clients can share cached proxy responses
+                const currentBucket = Math.floor(currentTs / 300);
+                if (currentBucket === lastFutureBucket) return;
                 
                 try {
                     let timestamps = [];
-                    for(let i=1; i<=15; i++) timestamps.push(currentTs + (i * 300)); // Every 5 mins for 75 mins
-                    const res = await fetch(`https://api.wheretheiss.at/v1/satellites/25544/positions?timestamps=${timestamps.join(',')}`);
+                    const bucketStart = currentBucket * 300;
+                    for(let i=1; i<=15; i++) timestamps.push(bucketStart + (i * 300)); // Every 5 mins for 75 mins
+                    const res = await fetch(`/api/iss-positions?timestamps=${timestamps.join(',')}`);
                     if (!res.ok) return;
                     const data = await res.json();
                     
@@ -511,7 +525,7 @@
                     
                     futureCoordsGlobal = futureCoords;
                     renderLineSafe(futureCoordsGlobal, futureTrailPath);
-                    lastFutureUpdate = currentTs;
+                    lastFutureBucket = currentBucket;
                     addLog("SYS: TRAJECTORY PREDICTION UPDATED");
                 } catch (e) {
                     console.error("Future trajectory failed", e);
@@ -605,21 +619,39 @@
                 }
             }
 
+            function getNextPollDelay() {
+                if (consecutivePollFailures === 0) return BASE_POLL_INTERVAL_MS;
+                return Math.min(MAX_POLL_INTERVAL_MS, BASE_POLL_INTERVAL_MS * (2 ** Math.min(consecutivePollFailures, 5)));
+            }
+
+            function canPollNow() {
+                return pollingEnabled && !telemetryUserPaused;
+            }
+
+            function scheduleNextPoll() {
+                if (!canPollNow()) return;
+                clearTimeout(pollTimeoutId);
+                pollTimeoutId = setTimeout(runPollLoop, getNextPollDelay());
+            }
+
             async function pollISSData() {
                 try {
-                    // Live Public API provided by wheretheiss.at
-                    const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+                    // Route through same-origin proxy to reduce duplicate upstream traffic
+                    const res = await fetch('/api/iss');
                     if (!res.ok) throw new Error('API limits reached');
                     const data = await res.json();
                     
                     if(!isLive) setConnectionStatus(true);
                     renderDashboard(data);
+                    consecutivePollFailures = 0;
                     
                     // Use actual timestamp provided by the ISS API
                     const timeStr = new Date(data.timestamp * 1000).toLocaleTimeString('en-US', { timeZone: 'UTC' });
                     addLog(`UPLINK RECV: LAT ${data.latitude.toFixed(4)} LON ${data.longitude.toFixed(4)} @ ${timeStr} UTC`);
                     
                 } catch (err) {
+                    consecutivePollFailures += 1;
+
                     // Failsafe Mock Mode
                     if (isLive) addLog("ERR: API CONNECTION LOST. SWITCHING TO SIMULATION.", "error");
                     setConnectionStatus(false);
@@ -643,6 +675,69 @@
                 }
             }
 
+            async function runPollLoop() {
+                if (!canPollNow()) return;
+                await pollISSData();
+                scheduleNextPoll();
+            }
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    pollingEnabled = false;
+                    clearTimeout(pollTimeoutId);
+                    addLog("SYS: TELEMETRY POLLING PAUSED (TAB HIDDEN).", "warn");
+                    return;
+                }
+
+                pollingEnabled = true;
+                addLog("SYS: TAB ACTIVE. TELEMETRY UPLINK AVAILABLE.", "info");
+                if (telemetryUserPaused) return;
+                runPollLoop();
+            });
+
+            function setTelemetryPauseState(paused, reason = 'manual') {
+                telemetryUserPaused = paused;
+                const resumeBtn = document.getElementById('telemetry-resume');
+                if (!resumeBtn) return;
+
+                clearTimeout(pollTimeoutId);
+
+                if (paused) {
+                    resumeBtn.classList.remove('hidden');
+                    if (reason === 'auto') {
+                        addLog("SYS: TELEMETRY AUTO-PAUSED AFTER 10s. CLICK PANEL TO RESUME.", "warn");
+                    } else {
+                        addLog("SYS: TELEMETRY PAUSED.", "warn");
+                    }
+                    return;
+                }
+
+                resumeBtn.classList.add('hidden');
+                addLog("SYS: TELEMETRY RESUMED BY USER.", "info");
+                if (canPollNow()) runPollLoop();
+            }
+
+            function initTelemetryAutopause() {
+                const resumeBtn = document.getElementById('telemetry-resume');
+                const panel = document.getElementById('telemetry-panel');
+                if (!resumeBtn || !panel) return;
+
+                setTimeout(() => {
+                    if (telemetryAutoPauseTriggered) return;
+                    telemetryAutoPauseTriggered = true;
+                    setTelemetryPauseState(true, 'auto');
+                }, 10000);
+
+                resumeBtn.addEventListener('click', () => {
+                    setTelemetryPauseState(false, 'manual');
+                });
+
+                panel.addEventListener('click', () => {
+                    if (!telemetryUserPaused) return;
+                    setTelemetryPauseState(false, 'manual');
+                });
+            }
+
             // ----------------------------------------------------
             // BOOT SEQUENCE
             // ----------------------------------------------------
@@ -651,8 +746,8 @@
             addLog("ESTABLISHING UPLINK TO ISS (NORAD 25544)...");
             
             fetchCrew();
-            pollISSData();
-            setInterval(pollISSData, 2000); // 2 second poll rate is within API limits
+            initTelemetryAutopause();
+            runPollLoop();
 
         });
     </script>

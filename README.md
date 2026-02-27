@@ -17,7 +17,8 @@ Futuristic single-page ISS dashboard with:
 - Tailwind (CDN)
 - D3.js (map rendering)
 - Lucide icons
-- Public ISS APIs (`wheretheiss.at`)
+- Vercel serverless proxy endpoints (`/api/iss`, `/api/iss-positions`)
+- Upstream ISS API provider (`wheretheiss.at`)
 
 ## Local Development
 
@@ -48,3 +49,15 @@ The NASA panel currently uses this stream:
 - [https://www.youtube.com/watch?v=aB1yRz0HhdY](https://www.youtube.com/watch?v=aB1yRz0HhdY)
 
 If NASA changes stream IDs again, update the iframe `src` in `index.html`.
+
+## API Protection Strategy
+
+To reduce upstream API load and avoid rate-limit spikes:
+
+- Telemetry polling runs every 8 seconds (not every 2 seconds)
+- Polling automatically pauses when the browser tab is hidden
+- Polling uses exponential backoff after failures (up to 120 seconds)
+- Client calls go through Vercel API routes with cache headers so users share responses
+- Future trajectory requests are aligned to 5-minute buckets for better cache hit rate
+
+Live telemetry polling now auto-runs for 10 seconds on load, then pauses until the user clicks the telemetry panel to resume.
