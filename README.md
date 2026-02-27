@@ -60,4 +60,4 @@ To reduce upstream API load and avoid rate-limit spikes:
 - Client calls go through Vercel API routes with cache headers so users share responses
 - Future trajectory requests are aligned to 5-minute buckets for better cache hit rate
 
-Live telemetry polling now runs in 5-second bursts: it auto-runs for 5 seconds on load, pauses, and resumes for another 5 seconds whenever the user clicks resume.
+Live telemetry polling now auto-runs for 5 seconds on initial page load, then pauses. When the user clicks resume, it runs for 2 minutes and auto-pauses again.

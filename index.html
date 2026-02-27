@@ -471,13 +471,15 @@
             // Polling/backoff controls
             const BASE_POLL_INTERVAL_MS = 5000;
             const MAX_POLL_INTERVAL_MS = 120000;
-            const TELEMETRY_AUTO_PAUSE_MS = 5000;
+            const TELEMETRY_INITIAL_AUTO_PAUSE_MS = 5000;
+            const TELEMETRY_RESUME_AUTO_PAUSE_MS = 120000;
             let consecutivePollFailures = 0;
             let pollTimeoutId = null;
             let telemetryAutoPauseId = null;
             let pollingEnabled = !document.hidden;
             let telemetryUserPaused = false;
             let pollInFlight = false;
+            let telemetryActiveWindowMs = TELEMETRY_INITIAL_AUTO_PAUSE_MS;
 
             // Fetch Astronaut Manifest
             async function fetchCrew() {
@@ -711,7 +713,10 @@
                 if (paused) {
                     resumeBtn.classList.remove('hidden');
                     if (reason === 'auto') {
-                        addLog("SYS: TELEMETRY AUTO-PAUSED AFTER 5s. CLICK PANEL TO RESUME.", "warn");
+                        const windowLabel = telemetryActiveWindowMs >= 60000
+                            ? `${Math.round(telemetryActiveWindowMs / 60000)}m`
+                            : `${Math.round(telemetryActiveWindowMs / 1000)}s`;
+                        addLog(`SYS: TELEMETRY AUTO-PAUSED AFTER ${windowLabel}. CLICK PANEL TO RESUME.`, "warn");
                     } else {
                         addLog("SYS: TELEMETRY PAUSED.", "warn");
                     }
@@ -720,9 +725,10 @@
 
                 resumeBtn.classList.add('hidden');
                 addLog("SYS: TELEMETRY RESUMED BY USER.", "info");
+                telemetryActiveWindowMs = TELEMETRY_RESUME_AUTO_PAUSE_MS;
                 telemetryAutoPauseId = setTimeout(() => {
                     if (!telemetryUserPaused) setTelemetryPauseState(true, 'auto');
-                }, TELEMETRY_AUTO_PAUSE_MS);
+                }, TELEMETRY_RESUME_AUTO_PAUSE_MS);
                 if (canPollNow()) runPollLoop();
             }
 
@@ -730,9 +736,10 @@
                 const resumeBtn = document.getElementById('telemetry-resume');
                 if (!resumeBtn) return;
 
+                telemetryActiveWindowMs = TELEMETRY_INITIAL_AUTO_PAUSE_MS;
                 telemetryAutoPauseId = setTimeout(() => {
                     setTelemetryPauseState(true, 'auto');
-                }, TELEMETRY_AUTO_PAUSE_MS);
+                }, TELEMETRY_INITIAL_AUTO_PAUSE_MS);
 
                 resumeBtn.addEventListener('click', () => {
                     setTelemetryPauseState(false, 'manual');
