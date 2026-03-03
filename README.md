@@ -14,10 +14,10 @@ Futuristic single-page ISS dashboard with:
 ## Tech Stack
 
 - Static HTML/CSS/JS (`index.html`)
-- Tailwind (CDN)
+- Tailwind CSS (prebuilt to `assets/tailwind.css`)
 - D3.js (map rendering)
 - Lucide icons
-- Vercel serverless proxy endpoints (`/api/iss`, `/api/iss-positions`)
+- Vercel serverless proxy endpoints (`/api/iss`, `/api/iss-positions`, `/api/crew`)
 - Upstream ISS API provider (`wheretheiss.at`)
 
 ## Local Development
@@ -32,6 +32,12 @@ Then open:
 
 ```text
 http://localhost:8080
+```
+
+When you change Tailwind classes in `index.html`, regenerate the stylesheet:
+
+```bash
+npx tailwindcss@3.4.17 -i ./tailwind.input.css -o ./assets/tailwind.css --content ./index.html --minify
 ```
 
 ## Deployment

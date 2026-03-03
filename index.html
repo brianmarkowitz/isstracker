@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aerospace Orbital Command</title>
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <!-- Tailwind CSS (prebuilt for production) -->
+    <link rel="stylesheet" href="/assets/tailwind.css">
     <!-- D3.js for the map visualization (Updated to reliable CDN) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <!-- Lucide for iconography -->
@@ -1136,13 +1138,13 @@
             // Fetch Astronaut Manifest
             async function fetchCrew() {
                 try {
-                    // Note: Open-Notify is HTTP. Browsers may block it. If so, fallback fires.
-                    const res = await fetch('http://api.open-notify.org/astros.json');
+                    const res = await fetch('/api/crew');
+                    if (!res.ok) throw new Error('Crew API unavailable');
                     const data = await res.json();
                     updateCrewUI(data.people.filter(p => p.craft === 'ISS'));
                 } catch (err) {
-                    addLog("WARN: LIVE MANIFEST UPLINK BLOCKED. USING CACHED.", "warn");
-                    // Fallback to recent known crew in case of mixed-content blocking
+                    addLog("WARN: LIVE MANIFEST UPLINK UNAVAILABLE. USING CACHED.", "warn");
+                    // Fallback to recent known crew if upstream is unavailable.
                     updateCrewUI([
                         { name: "Oleg Kononenko" }, { name: "Nikolai Chub" },
                         { name: "Tracy Caldwell Dyson" }, { name: "Matthew Dominick" },
