@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,10 +13,11 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        
+
         body {
             font-family: 'Share Tech Mono', monospace;
-            background-color: #030712; /* gray-950 */
+            background-color: #030712;
+            /* gray-950 */
             color: #00f3ff;
             overflow: hidden;
         }
@@ -36,13 +38,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(
-                to bottom,
-                rgba(255,255,255,0),
-                rgba(255,255,255,0) 50%,
-                rgba(0, 0, 0, 0.25) 50%,
-                rgba(0, 0, 0, 0.25)
-            );
+            background: linear-gradient(to bottom,
+                    rgba(255, 255, 255, 0),
+                    rgba(255, 255, 255, 0) 50%,
+                    rgba(0, 0, 0, 0.25) 50%,
+                    rgba(0, 0, 0, 0.25));
             background-size: 100% 4px;
             pointer-events: none;
             z-index: 50;
@@ -57,7 +57,7 @@
             opacity: 0.5;
             transition: fill 0.3s, opacity 0.3s;
         }
-        
+
         .country:hover {
             fill: #00f3ff;
             opacity: 0.3;
@@ -65,7 +65,36 @@
 
         .iss-marker {
             fill: #ffffff;
-            filter: drop-shadow(0 0 8px #ffffff) drop-shadow(0 0 15px #00f3ff);
+            filter: drop-shadow(0 0 5px #ffffff) drop-shadow(0 0 10px #00f3ff);
+        }
+
+        .sat-marker-dot {
+            filter: drop-shadow(0 0 4px var(--sat-color, #888));
+        }
+
+        .sat-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 8px;
+            fill: var(--sat-color, #888);
+            letter-spacing: 0.1em;
+            pointer-events: none;
+        }
+
+        .sat-marker,
+        .iss-group-clickable {
+            cursor: pointer;
+        }
+
+        .sat-marker:hover .sat-marker-dot,
+        .iss-group-clickable:hover .iss-marker {
+            filter: drop-shadow(0 0 8px #fff) brightness(1.5);
+        }
+
+        .active-target-ring {
+            fill: none;
+            stroke: #fff;
+            stroke-width: 1.5;
+            stroke-dasharray: 3 3;
         }
 
         .orbit-trail {
@@ -79,64 +108,173 @@
         /* Blueprint grid background for map container */
         .grid-bg {
             background-size: 40px 40px;
-            background-image: 
+            background-image:
                 linear-gradient(to right, rgba(0, 243, 255, 0.05) 1px, transparent 1px),
                 linear-gradient(to bottom, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
         }
-        
-        /* Custom scrollbar for telemetry terminal */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: rgba(0, 243, 255, 0.05); }
-        ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 243, 255, 0.6); }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.2); }
+        /* Globe atmosphere glow */
+        .globe-atmosphere {
+            fill: none;
+            stroke: rgba(0, 243, 255, 0.25);
+            stroke-width: 2;
+            filter: drop-shadow(0 0 12px rgba(0, 243, 255, 0.3)) drop-shadow(0 0 30px rgba(0, 100, 200, 0.15));
+        }
+
+        .globe-ocean {
+            fill: #020810;
+            stroke: none;
+        }
+
+        .globe-graticule {
+            fill: none;
+            stroke: rgba(0, 243, 255, 0.06);
+            stroke-width: 0.5;
+        }
+
+        /* Projection toggle button */
+        .proj-toggle {
+            cursor: pointer;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 243, 255, 0.4);
+            color: #00f3ff;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            padding: 4px 10px;
+            border-radius: 4px;
+            transition: all 0.3s;
+            pointer-events: all;
+        }
+
+        .proj-toggle:hover {
+            background: rgba(0, 243, 255, 0.15);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
+        .proj-toggle .active-mode {
+            color: #ffffff;
+            text-shadow: 0 0 5px #00f3ff;
+        }
+
+        /* Custom scrollbar for telemetry terminal */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 243, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 243, 255, 0.6);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.2);
+        }
     </style>
 </head>
+
 <body class="h-screen w-screen p-2 md:p-4 flex flex-col gap-4 relative">
     <div class="scanlines"></div>
 
     <!-- Top Header -->
-    <header class="neon-border rounded-lg p-3 md:p-4 flex flex-col md:flex-row justify-between items-center bg-[#050b14]/90 backdrop-blur z-10 gap-4">
+    <header
+        class="neon-border rounded-lg p-3 md:p-4 flex flex-col md:flex-row justify-between items-center bg-[#050b14]/90 backdrop-blur z-10 gap-4">
         <div class="flex items-center gap-4">
             <i data-lucide="satellite" class="w-8 h-8 text-cyan-300"></i>
             <div>
-                <h1 class="text-xl md:text-2xl font-bold neon-text tracking-widest text-white">AEROSPACE ORBITAL COMMAND</h1>
+                <h1 class="text-xl md:text-2xl font-bold neon-text tracking-widest text-white">AEROSPACE ORBITAL COMMAND
+                </h1>
                 <p class="text-xs text-cyan-400/80 tracking-widest">SAT-TRACK // UPLINK: SECURE</p>
             </div>
         </div>
-        <div class="flex items-center gap-4 md:gap-8">
-            <div class="hidden md:flex flex-col items-end">
-                <span class="text-xs text-cyan-400/70">TARGET</span>
-                <span class="text-lg font-bold text-white tracking-widest">ISS (ZARYA)</span>
+        <div class="flex flex-wrap items-center gap-3 md:gap-8 justify-center md:justify-end">
+            <div class="flex flex-col items-end">
+                <span class="text-[0.65rem] md:text-xs text-cyan-400/70 mb-[-2px]">TARGET</span>
+                <span id="header-target"
+                    class="text-sm md:text-lg font-bold text-white tracking-widest truncate max-w-[140px] md:max-w-none">ISS
+                    (ZARYA)</span>
             </div>
-            <div class="hidden md:flex flex-col items-end">
-                <span class="text-xs text-cyan-400/70">NORAD ID</span>
-                <span class="text-lg font-bold text-white tracking-widest">25544</span>
+            <div class="flex flex-col items-end">
+                <span class="text-[0.65rem] md:text-xs text-cyan-400/70 mb-[-2px]">NORAD ID</span>
+                <span id="header-norad" class="text-sm md:text-lg font-bold text-white tracking-widest">25544</span>
             </div>
-            <div class="flex items-center gap-2 px-3 py-1 neon-border rounded bg-black/50">
-                <div id="status-indicator" class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse"></div>
-                <span id="status-text" class="text-green-500 font-bold tracking-wider text-sm">LIVE</span>
+            <div class="flex items-center gap-2 px-2 md:px-3 py-1 neon-border rounded bg-black/50">
+                <div id="status-indicator"
+                    class="w-2 h-2 md:w-3 md:h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse">
+                </div>
+                <span id="status-text" class="text-green-500 font-bold tracking-wider text-xs md:text-sm">LIVE</span>
             </div>
         </div>
     </header>
 
     <!-- Main Dashboard Grid -->
     <main class="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0 z-10">
-        
+
         <!-- Col 1-3: Main Operations -->
         <div class="lg:col-span-3 flex flex-col gap-4 min-h-0">
             <!-- Top: Map Visualization -->
-            <div class="flex-[2] neon-border rounded-lg relative overflow-hidden bg-[#02050a] grid-bg flex flex-col shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]">
-                <div class="absolute top-4 left-4 z-20 pointer-events-none flex flex-col gap-2">
-                    <div class="text-sm font-bold tracking-widest bg-black/70 px-3 py-1 rounded neon-border inline-block text-white">GLOBAL TRAJECTORY MAP</div>
-                    <div class="text-xs tracking-widest bg-black/50 px-2 py-1 rounded border border-cyan-900 inline-block">
-                        <span class="text-cyan-600">PROJ:</span> MERCATOR
+            <div id="map-panel"
+                class="flex-[2] min-h-[450px] lg:min-h-0 neon-border rounded-lg relative overflow-hidden bg-[#02050a] grid-bg flex flex-col shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]">
+                <div class="absolute top-4 left-4 z-20 flex flex-col gap-2" style="pointer-events: none;">
+                    <div
+                        class="text-sm font-bold tracking-widest bg-black/70 px-3 py-1 rounded neon-border inline-block text-white">
+                        GLOBAL TRAJECTORY MAP</div>
+                    <div class="flex gap-2">
+                        <button id="proj-toggle-btn" class="proj-toggle" title="Toggle map projection">
+                            <i id="proj-icon" data-lucide="map" class="w-3.5 h-3.5 inline-block align-middle mr-1"></i>
+                            <span id="proj-label" class="active-mode">MERCATOR</span>
+                        </button>
+                        <button id="settings-btn" class="proj-toggle" title="Object visibility settings">
+                            <i data-lucide="settings" class="w-3.5 h-3.5 inline-block align-middle"></i>
+                        </button>
+                        <button id="re-center-btn" class="proj-toggle" title="Re-center Map">
+                            <i data-lucide="crosshair" class="w-3.5 h-3.5 inline-block align-middle"></i>
+                        </button>
+                        <button id="fullscreen-btn" class="proj-toggle" title="Toggle fullscreen">
+                            <i id="fs-icon" data-lucide="maximize" class="w-3.5 h-3.5 inline-block align-middle"></i>
+                        </button>
+                    </div>
+                    <!-- Settings dropdown -->
+                    <div id="settings-panel"
+                        class="hidden bg-black/90 backdrop-blur-lg neon-border rounded p-3 text-xs tracking-wider"
+                        style="pointer-events: all; min-width: 180px;">
+                        <div class="text-cyan-400 mb-2 border-b border-cyan-900 pb-1">TRACKED OBJECTS</div>
+                        <label class="flex items-center gap-2 mb-1.5 cursor-pointer text-white hover:text-cyan-300">
+                            <input type="checkbox" id="toggle-iss" checked class="accent-cyan-500"> ISS (ZARYA)
+                        </label>
+                        <label class="flex items-center gap-2 mb-1.5 cursor-pointer text-white hover:text-cyan-300">
+                            <input type="checkbox" id="toggle-tiangong" checked class="accent-red-400"> TIANGONG
+                        </label>
+                        <label class="flex items-center gap-2 mb-1.5 cursor-pointer text-white hover:text-cyan-300">
+                            <input type="checkbox" id="toggle-hubble" checked class="accent-purple-400"> HUBBLE
+                        </label>
+                        <label class="flex items-center gap-2 mb-1.5 cursor-pointer text-white hover:text-cyan-300">
+                            <input type="checkbox" id="toggle-visiting" checked class="accent-orange-400"> VISITING
+                            SPACECRAFT
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-white hover:text-cyan-300">
+                            <input type="checkbox" id="toggle-starlink" class="accent-yellow-400"> STARLINK <span
+                                class="text-cyan-700" id="starlink-count"></span>
+                        </label>
                     </div>
                 </div>
-                
+
                 <div class="absolute bottom-4 left-4 z-20 pointer-events-none bg-black/70 p-2 rounded neon-border">
                     <div class="text-sm text-cyan-300">LAT: <span id="map-lat" class="text-white">0.0000</span>°</div>
                     <div class="text-sm text-cyan-300">LON: <span id="map-lon" class="text-white">0.0000</span>°</div>
@@ -149,21 +287,33 @@
             <!-- Bottom: Stream & Terminal -->
             <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
                 <!-- Ext Camera Feed -->
-                <div class="neon-border rounded-lg relative overflow-hidden bg-black flex flex-col group">
-                    <div class="absolute top-2 left-2 z-20 pointer-events-none bg-black/70 px-2 py-1 rounded neon-border text-xs flex items-center gap-2">
+                <div
+                    class="min-h-[250px] md:min-h-0 neon-border rounded-lg relative overflow-hidden bg-black flex flex-col group">
+                    <div
+                        class="absolute top-2 left-2 z-20 pointer-events-none bg-black/70 px-2 py-1 rounded neon-border text-xs flex items-center gap-2">
                         <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                         <span class="text-white tracking-widest">NASA LIVE / EXT CAM</span>
                     </div>
-                    <!-- NASA live feed (user-provided current stream URL) -->
-                    <iframe class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity" src="https://www.youtube.com/embed/aB1yRz0HhdY?autoplay=1&mute=1&controls=1&modestbranding=1&rel=0&playsinline=1" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    <a href="https://www.youtube.com/watch?v=zPH5KtjJFaQ" target="_blank" rel="noopener noreferrer"
+                        class="absolute top-2 right-2 z-20 bg-black/70 px-2 py-1 rounded neon-border text-[10px] tracking-widest text-cyan-300 hover:text-white transition-colors">
+                        OPEN ON YOUTUBE
+                    </a>
+                    <!-- NASA ISS live feed -->
+                    <iframe class="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity"
+                        src="https://www.youtube.com/embed/zPH5KtjJFaQ?autoplay=1&mute=1&controls=1&modestbranding=1&rel=0&playsinline=1"
+                        frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
                     <div class="scanlines"></div>
                 </div>
 
                 <!-- Terminal Data Log -->
                 <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-full h-8 bg-gradient-to-b from-[#050b14] to-transparent pointer-events-none z-10 rounded-t-lg"></div>
-                    <div class="absolute bottom-0 right-0 w-full h-8 bg-gradient-to-t from-[#050b14] to-transparent pointer-events-none z-10 rounded-b-lg"></div>
-                    
+                    <div
+                        class="absolute top-0 right-0 w-full h-8 bg-gradient-to-b from-[#050b14] to-transparent pointer-events-none z-10 rounded-t-lg">
+                    </div>
+                    <div
+                        class="absolute bottom-0 right-0 w-full h-8 bg-gradient-to-t from-[#050b14] to-transparent pointer-events-none z-10 rounded-b-lg">
+                    </div>
+
                     <div class="flex justify-between items-center mb-2 border-b border-cyan-900 pb-2 z-20">
                         <h2 class="text-sm text-cyan-400/80 tracking-widest">LIVE TELEMETRY</h2>
                         <i data-lucide="terminal" class="w-4 h-4 text-cyan-500"></i>
@@ -177,9 +327,10 @@
 
         <!-- Col 4: Telemetry Sidebar -->
         <div class="lg:col-span-1 flex flex-col gap-4 min-h-0 overflow-y-auto pr-2 pb-2 custom-scrollbar">
-            
+
             <!-- Altitude Widget -->
-            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden group shrink-0">
+            <div
+                class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden group shrink-0">
                 <div class="absolute -right-2 -top-2 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                     <i data-lucide="arrow-up-to-line" class="w-24 h-24"></i>
                 </div>
@@ -187,16 +338,19 @@
                     <i data-lucide="mountain" class="w-4 h-4"></i> ALTITUDE
                 </h2>
                 <div class="flex items-end gap-2 z-10">
-                    <span id="alt-val" class="text-4xl md:text-5xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">---.--</span>
+                    <span id="alt-val"
+                        class="text-4xl md:text-5xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">---.--</span>
                     <span class="text-lg text-cyan-400 mb-1">km</span>
                 </div>
                 <div class="mt-4 h-1.5 w-full bg-cyan-950 rounded-full overflow-hidden z-10">
-                    <div id="alt-bar" class="h-full bg-cyan-400 shadow-[0_0_10px_#00f3ff] transition-all duration-1000" style="width: 50%;"></div>
+                    <div id="alt-bar" class="h-full bg-cyan-400 shadow-[0_0_10px_#00f3ff] transition-all duration-1000"
+                        style="width: 50%;"></div>
                 </div>
             </div>
 
             <!-- Velocity Widget -->
-            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden group shrink-0">
+            <div
+                class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden group shrink-0">
                 <div class="absolute -right-2 -top-2 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                     <i data-lucide="gauge" class="w-24 h-24"></i>
                 </div>
@@ -204,33 +358,41 @@
                     <i data-lucide="wind" class="w-4 h-4"></i> VELOCITY
                 </h2>
                 <div class="flex items-end gap-2 z-10">
-                    <span id="vel-val" class="text-4xl md:text-5xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">---.--</span>
+                    <span id="vel-val"
+                        class="text-4xl md:text-5xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">---.--</span>
                     <span class="text-lg text-cyan-400 mb-1">km/h</span>
                 </div>
                 <div class="mt-4 flex gap-1 z-10 h-1.5">
                     <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse"></div>
-                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse" style="animation-delay: 100ms"></div>
-                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse" style="animation-delay: 200ms"></div>
-                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse" style="animation-delay: 300ms"></div>
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse"
+                        style="animation-delay: 100ms"></div>
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse"
+                        style="animation-delay: 200ms"></div>
+                    <div class="flex-1 bg-cyan-400 shadow-[0_0_5px_#00f3ff] animate-pulse"
+                        style="animation-delay: 300ms"></div>
                     <div class="flex-1 bg-cyan-950"></div>
                 </div>
             </div>
 
             <!-- Illumination Widget -->
-            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
+            <div
+                class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
                 <div class="absolute -right-2 -top-2 p-2 opacity-10" id="vis-icon-bg-wrapper">
                     <i data-lucide="sun" class="w-24 h-24"></i>
                 </div>
                 <h2 class="text-sm text-cyan-400/80 tracking-widest mb-2 flex items-center gap-2">
-                    <span id="vis-icon-wrapper" data-current="sun"><i data-lucide="sun" class="w-4 h-4"></i></span> ILLUMINATION
+                    <span id="vis-icon-wrapper" data-current="sun"><i data-lucide="sun" class="w-4 h-4"></i></span>
+                    ILLUMINATION
                 </h2>
                 <div class="flex items-end gap-2 z-10">
-                    <span id="vis-val" class="text-3xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">UNKNOWN</span>
+                    <span id="vis-val"
+                        class="text-3xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">UNKNOWN</span>
                 </div>
             </div>
 
             <!-- Footprint Widget -->
-            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
+            <div
+                class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
                 <div class="absolute -right-2 -top-2 p-2 opacity-10">
                     <i data-lucide="scan" class="w-24 h-24"></i>
                 </div>
@@ -238,13 +400,85 @@
                     <i data-lucide="radar" class="w-4 h-4"></i> RADAR FOOTPRINT
                 </h2>
                 <div class="flex items-end gap-2 z-10">
-                    <span id="footprint-val" class="text-3xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">----</span>
+                    <span id="footprint-val"
+                        class="text-3xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">----</span>
                     <span class="text-lg text-cyan-400 mb-1">km</span>
                 </div>
             </div>
 
+            <!-- Next Pass Predictor Widget -->
+            <div
+                class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col justify-between relative overflow-hidden shrink-0">
+                <div class="absolute -right-2 -top-2 p-2 opacity-10">
+                    <i data-lucide="eye" class="w-24 h-24"></i>
+                </div>
+                <h2 class="text-sm text-cyan-400/80 tracking-widest mb-2 flex items-center gap-2">
+                    <i data-lucide="crosshair" class="w-4 h-4"></i> NEXT PASS OVER YOU
+                </h2>
+                <div id="pass-content" class="z-10">
+                    <!-- Before location is set -->
+                    <div id="pass-setup" class="flex flex-col gap-2">
+                        <button id="btn-geolocate"
+                            class="w-full text-xs bg-cyan-900/50 hover:bg-cyan-800/60 text-cyan-300 border border-cyan-700 rounded px-3 py-2 tracking-wider transition-all hover:shadow-[0_0_10px_rgba(0,243,255,0.2)]">
+                            <i data-lucide="map-pin" class="w-3 h-3 inline-block mr-1"></i> SET YOUR LOCATION
+                        </button>
+                        <button id="btn-manual-loc"
+                            class="text-[10px] text-cyan-600 hover:text-cyan-400 underline transition-colors">
+                            ENTER COORDINATES MANUALLY
+                        </button>
+                        <div id="manual-loc-form" class="hidden flex flex-col gap-1.5 mt-1">
+                            <input id="manual-lat" type="number" step="any" min="-90" max="90"
+                                placeholder="LATITUDE (e.g. 40.71)"
+                                class="bg-black/60 border border-cyan-800 rounded px-2 py-1 text-xs text-white placeholder:text-cyan-800 focus:outline-none focus:border-cyan-500 w-full">
+                            <input id="manual-lon" type="number" step="any" min="-180" max="180"
+                                placeholder="LONGITUDE (e.g. -74.01)"
+                                class="bg-black/60 border border-cyan-800 rounded px-2 py-1 text-xs text-white placeholder:text-cyan-800 focus:outline-none focus:border-cyan-500 w-full">
+                            <button id="btn-manual-submit"
+                                class="text-xs bg-cyan-900/50 hover:bg-cyan-800/60 text-cyan-300 border border-cyan-700 rounded px-3 py-1.5 tracking-wider transition-all">SET</button>
+                        </div>
+                    </div>
+                    <!-- After location is set -->
+                    <div id="pass-data" class="hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <span id="pass-loc-label" class="text-[10px] text-cyan-600 truncate max-w-[140px]">--</span>
+                            <button id="btn-change-loc"
+                                class="text-[10px] text-cyan-600 hover:text-cyan-400 underline transition-colors">CHANGE</button>
+                        </div>
+                        <div id="pass-countdown-section">
+                            <div class="text-[10px] text-cyan-500 tracking-wider mb-1">COUNTDOWN TO NEXT PASS</div>
+                            <div id="pass-countdown"
+                                class="text-2xl font-bold text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">
+                                --:--:--</div>
+                        </div>
+                        <div id="pass-details" class="mt-3 flex flex-col gap-1.5 text-[11px]">
+                            <div class="flex justify-between"><span class="text-cyan-500">MAX ELEV</span><span
+                                    id="pass-max-el" class="text-white font-bold">--°</span></div>
+                            <div class="flex justify-between"><span class="text-cyan-500">RISE</span><span
+                                    id="pass-rise" class="text-white">--:--</span></div>
+                            <div class="flex justify-between"><span class="text-cyan-500">SET</span><span id="pass-set"
+                                    class="text-white">--:--</span></div>
+                            <div class="flex justify-between"><span class="text-cyan-500">AZIMUTH</span><span
+                                    id="pass-az" class="text-white">--° → --°</span></div>
+                        </div>
+                        <div id="pass-active-banner"
+                            class="hidden mt-2 text-center text-xs font-bold text-green-400 bg-green-900/30 border border-green-700 rounded py-1 animate-pulse tracking-wider">
+                            ● ISS VISIBLE NOW
+                        </div>
+                        <div id="pass-none" class="hidden mt-1 text-[10px] text-cyan-700 text-center">NO PASSES IN NEXT
+                            12 HOURS</div>
+                        <div id="pass-upcoming" class="hidden mt-2 border-t border-cyan-900 pt-2">
+                            <div class="text-[10px] text-cyan-600 tracking-wider mb-1">UPCOMING</div>
+                            <div id="pass-list"
+                                class="flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar text-[10px]">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Crew Roster Widget -->
-            <div class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden flex-1 min-h-[150px]">
+            <div
+                class="neon-border rounded-lg p-4 bg-[#050b14]/90 flex flex-col relative overflow-hidden flex-1 min-h-[150px]">
                 <div class="absolute -right-2 -top-2 p-2 opacity-10">
                     <i data-lucide="users" class="w-24 h-24"></i>
                 </div>
@@ -252,7 +486,8 @@
                     <h2 class="text-sm text-cyan-400/80 tracking-widest flex items-center gap-2">
                         <i data-lucide="user-check" class="w-4 h-4"></i> MANIFEST
                     </h2>
-                    <span class="bg-cyan-900/50 text-cyan-300 text-xs px-2 py-0.5 rounded border border-cyan-800"><span id="crew-count">-</span> POB</span>
+                    <span class="bg-cyan-900/50 text-cyan-300 text-xs px-2 py-0.5 rounded border border-cyan-800"><span
+                            id="crew-count">-</span> POB</span>
                 </div>
                 <div id="crew-list" class="flex flex-col gap-2 z-10 overflow-y-auto custom-scrollbar pr-1">
                     <div class="text-xs text-cyan-600 animate-pulse">Awaiting manifest...</div>
@@ -265,7 +500,7 @@
     <script>
         // Wait for the window and external scripts to fully load
         window.addEventListener('load', () => {
-            
+
             // Initialize Lucide Icons
             lucide.createIcons();
 
@@ -286,23 +521,43 @@
                 .attr("preserveAspectRatio", "xMidYMid meet");
 
             const g = svg.append("g");
-            
+
             let width = mapContainer.clientWidth;
             let height = mapContainer.clientHeight;
-            
-            // Define projection and fit the full world into the viewport.
-            // This keeps ISS marker positions (including high southern latitudes) on-screen.
-            let projection = d3.geoMercator();
+
+            // ── Projection System (supports Mercator ↔ Orthographic toggle) ──
+            let currentProjectionMode = 'mercator'; // 'mercator' | 'orthographic'
+            let projectionMercator = d3.geoMercator();
+            let projectionOrtho = d3.geoOrthographic().clipAngle(90);
+            let projection = projectionMercator;
             const projectionPadding = 12;
+
             function fitProjection() {
-                projection.fitExtent(
-                    [[projectionPadding, projectionPadding], [width - projectionPadding, height - projectionPadding]],
-                    { type: "Sphere" }
-                );
+                if (currentProjectionMode === 'mercator') {
+                    projectionMercator.fitExtent(
+                        [[projectionPadding, projectionPadding], [width - projectionPadding, height - projectionPadding]],
+                        { type: "Sphere" }
+                    );
+                } else {
+                    const globeSize = Math.min(width, height) - projectionPadding * 2;
+                    projectionOrtho
+                        .translate([width / 2, height / 2])
+                        .scale(globeSize / 2);
+                }
             }
             fitProjection();
-                
+
             let path = d3.geoPath().projection(projection);
+
+            // Globe-specific layers (hidden in mercator mode)
+            const globeOcean = g.append("circle")
+                .attr("class", "globe-ocean")
+                .style("display", "none");
+
+            const globeGraticule = g.append("path")
+                .attr("class", "globe-graticule")
+                .datum(d3.geoGraticule10())
+                .style("display", "none");
 
             // 1. Night Terminator Path
             const terminatorPath = g.append("path")
@@ -319,8 +574,8 @@
 
             // Map trailing data setup
             let trailData = [];
-            const maxTrailLength = 50; 
-            
+            const maxTrailLength = 50;
+
             const trailPath = g.append("path").attr("class", "orbit-trail");
 
             // 3. Future Trajectory Path
@@ -336,49 +591,80 @@
             let lastTerminatorGeo = null;
             let lastFootprintGeo = null;
 
+            // User location marker (for pass predictor — also shown on globe)
+            const userLocGroup = g.append("g").style("display", "none");
+            userLocGroup.append("circle").attr("r", 5).attr("fill", "#22c55e").attr("opacity", 0.8)
+                .attr("filter", "drop-shadow(0 0 6px #22c55e)");
+            userLocGroup.append("circle").attr("r", 12).attr("fill", "none").attr("stroke", "#22c55e")
+                .attr("stroke-width", 1).attr("opacity", 0.5)
+                .append("animate").attr("attributeName", "r").attr("values", "5;18")
+                .attr("dur", "3s").attr("repeatCount", "indefinite");
+            userLocGroup.append("circle").attr("r", 12).attr("fill", "none").attr("stroke", "#22c55e")
+                .attr("stroke-width", 1)
+                .append("animate").attr("attributeName", "opacity").attr("values", "0.6;0")
+                .attr("dur", "3s").attr("repeatCount", "indefinite");
+            let userLocationCoords = null; // [lon, lat] when set
+
             // ISS Marker Group Setup
-            const issGroup = g.append("g").style("display", "none");
-            
-            // Marker Pulse Animation
+            const issGroup = g.append("g").style("display", "none").attr("class", "iss-group-clickable");
+
+            // Active target ring (white dashed)
+            const issActiveRing = issGroup.append("circle")
+                .attr("class", "active-target-ring").attr("r", 16);
+
+            // Marker Pulse - smaller, subtler
             issGroup.append("circle")
-                .attr("r", 20)
-                .attr("fill", "rgba(0, 243, 255, 0.2)")
+                .attr("r", 12)
+                .attr("fill", "rgba(0, 243, 255, 0.15)")
                 .append("animate")
                 .attr("attributeName", "r")
-                .attr("values", "5;35")
+                .attr("values", "4;20")
                 .attr("dur", "2s")
                 .attr("repeatCount", "indefinite");
-                
+
             issGroup.append("circle")
-                .attr("r", 20)
+                .attr("r", 12)
                 .attr("fill", "none")
-                .attr("stroke", "rgba(0, 243, 255, 0.8)")
-                .attr("stroke-width", "2")
+                .attr("stroke", "rgba(0, 243, 255, 0.6)")
+                .attr("stroke-width", "1")
                 .append("animate")
                 .attr("attributeName", "opacity")
-                .attr("values", "1;0")
+                .attr("values", "0.8;0")
                 .attr("dur", "2s")
                 .attr("repeatCount", "indefinite");
 
-            // Marker Core - Stylized ISS Icon
+            // Marker Core — compact ISS silhouette
             const issIcon = issGroup.append("g").attr("class", "iss-marker");
-            
-            // Central Truss
-            issIcon.append("rect").attr("x", -12).attr("y", -1).attr("width", 24).attr("height", 2);
-            
-            // Left Solar Arrays
-            issIcon.append("rect").attr("x", -16).attr("y", -5).attr("width", 4).attr("height", 10);
-            issIcon.append("rect").attr("x", -11).attr("y", -5).attr("width", 4).attr("height", 10);
-            
-            // Right Solar Arrays
-            issIcon.append("rect").attr("x", 7).attr("y", -5).attr("width", 4).attr("height", 10);
-            issIcon.append("rect").attr("x", 12).attr("y", -5).attr("width", 4).attr("height", 10);
-            
-            // Central Modules (Hab/Labs)
-            issIcon.append("rect").attr("x", -2).attr("y", -7).attr("width", 4).attr("height", 14).attr("rx", 1);
+            // Central truss
+            issIcon.append("rect").attr("x", -7).attr("y", -0.5).attr("width", 14).attr("height", 1);
+            // Left solar panels
+            issIcon.append("rect").attr("x", -9).attr("y", -3).attr("width", 2.5).attr("height", 6).attr("rx", 0.3);
+            issIcon.append("rect").attr("x", -6).attr("y", -3).attr("width", 2.5).attr("height", 6).attr("rx", 0.3);
+            // Right solar panels
+            issIcon.append("rect").attr("x", 3.5).attr("y", -3).attr("width", 2.5).attr("height", 6).attr("rx", 0.3);
+            issIcon.append("rect").attr("x", 6.5).attr("y", -3).attr("width", 2.5).attr("height", 6).attr("rx", 0.3);
+            // Central module cluster (diamond shape)
+            issIcon.append("polygon").attr("points", "0,-4 2.5,0 0,4 -2.5,0");
+
+            // Click to track ISS
+            issGroup.on("click", (e) => { e.stopPropagation(); selectTrackingTarget('25544'); });
+
+            // ── Satellite marker container (Tiangong, Hubble, etc.) ──
+            const satMarkersGroup = g.append("g").attr("class", "sat-markers");
+            let satData = []; // [{ noradId, name, color, latitude, longitude, altitude, velocity, footprint }]
+
+            // ── Active tracking target state ──
+            let activeTarget = '25544'; // default: ISS
+
+            // Globe atmosphere ring (appended last so it's on top)
+            const globeAtmosphere = g.append("circle")
+                .attr("class", "globe-atmosphere")
+                .style("display", "none");
 
             // Fetch and draw GeoJSON
+            let geoJsonData = null;
             d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(data => {
+                geoJsonData = data;
                 g.selectAll("path.country")
                     .data(data.features)
                     .enter()
@@ -389,7 +675,7 @@
                 console.error("Failed to load map data:", err);
             });
 
-            // Add Zoom & Pan
+            // ── Zoom & Pan ──
             const INITIAL_MAP_ZOOM = 1.35;
             function getCenteredZoomTransform(scale) {
                 return d3.zoomIdentity
@@ -405,48 +691,393 @@
                     g.attr("transform", event.transform);
                     if (event.sourceEvent) userAdjustedZoom = true;
                 });
-            svg.call(zoom);
-            svg.call(zoom.transform, getCenteredZoomTransform(INITIAL_MAP_ZOOM));
+
+            // Globe drag-to-rotate
+            let globeRotation = [0, -20]; // [lambda, phi]
+            let globeAutoRotate = true;
+            let globeAutoRotateTimer = null;
+            const globeDrag = d3.drag()
+                .on("start", () => {
+                    globeAutoRotate = false;
+                    clearTimeout(globeAutoRotateTimer);
+                })
+                .on("drag", (event) => {
+                    const sensitivity = 0.4;
+                    globeRotation[0] += event.dx * sensitivity;
+                    globeRotation[1] -= event.dy * sensitivity;
+                    globeRotation[1] = Math.max(-80, Math.min(80, globeRotation[1]));
+                    projectionOrtho.rotate(globeRotation);
+                    redrawAllPaths();
+                })
+                .on("end", () => {
+                    // Resume auto-rotate after 8 seconds of no interaction
+                    globeAutoRotateTimer = setTimeout(() => { globeAutoRotate = true; }, 8000);
+                });
+
+            // Globe scroll-to-zoom
+            const globeZoom = d3.zoom()
+                .scaleExtent([0.5, 4])
+                .on("zoom", (event) => {
+                    const scale = event.transform.k;
+                    const globeSize = Math.min(width, height) - projectionPadding * 2;
+                    projectionOrtho.scale((globeSize / 2) * scale);
+                    redrawAllPaths();
+                });
+
+            function applyMercatorInteraction() {
+                svg.on(".drag", null);
+                svg.call(zoom);
+                svg.call(zoom.transform, getCenteredZoomTransform(INITIAL_MAP_ZOOM));
+                userAdjustedZoom = false;
+            }
+
+            function applyGlobeInteraction() {
+                svg.on(".zoom", null);
+                g.attr("transform", null); // Reset any mercator transform
+                svg.call(globeDrag);
+                svg.call(globeZoom);
+                svg.call(globeZoom.transform, d3.zoomIdentity); // Reset globe zoom
+            }
+
+            // Start with mercator interaction
+            applyMercatorInteraction();
+
+            // ── Redraw all map paths (used by projection toggle + globe rotation) ──
+            function redrawAllPaths() {
+                path = d3.geoPath().projection(projection);
+                g.selectAll("path.country").attr("d", path);
+
+                if (currentProjectionMode === 'orthographic') {
+                    const center = projection.translate();
+                    const r = projection.scale();
+                    globeOcean.attr("cx", center[0]).attr("cy", center[1]).attr("r", r);
+                    globeAtmosphere.attr("cx", center[0]).attr("cy", center[1]).attr("r", r + 2);
+                    globeGraticule.attr("d", path);
+                }
+
+                renderLineSafe(trailData, trailPath);
+                if (futureCoordsGlobal.length > 0) renderLineSafe(futureCoordsGlobal, futureTrailPath);
+                if (lastTerminatorGeo) terminatorPath.datum(lastTerminatorGeo).attr("d", path);
+                if (lastFootprintGeo) footprintPath.datum(lastFootprintGeo).attr("d", path);
+
+                // Reposition ISS marker
+                if (trailData.length > 0) {
+                    const latest = trailData[trailData.length - 1];
+                    const coords = projection(latest);
+                    if (coords) {
+                        const visible = currentProjectionMode === 'mercator' || isPointVisible(latest);
+                        issGroup.style("display", visible ? "block" : "none");
+                        if (visible) issGroup.attr("transform", `translate(${coords[0]},${coords[1]})`);
+                    }
+                }
+
+                // Reposition user location marker
+                if (userLocationCoords) {
+                    const uc = projection(userLocationCoords);
+                    if (uc) {
+                        const visible = currentProjectionMode === 'mercator' || isPointVisible(userLocationCoords);
+                        userLocGroup.style("display", visible ? "block" : "none");
+                        if (visible) userLocGroup.attr("transform", `translate(${uc[0]},${uc[1]})`);
+                    }
+                }
+
+                // Reposition satellite markers
+                renderSatMarkers();
+
+                // Reposition Starlink constellation
+                if (typeof renderStarlink === 'function') renderStarlink();
+            }
+
+            // Check if a [lon, lat] point is on the visible side of the globe
+            function isPointVisible(lonLat) {
+                if (currentProjectionMode === 'mercator') return true;
+                const rot = projectionOrtho.rotate();
+                // Angular distance from globe center
+                const lambda = (lonLat[0] + rot[0]) * Math.PI / 180;
+                const phi = lonLat[1] * Math.PI / 180;
+                const phiCenter = -rot[1] * Math.PI / 180;
+                const cosDist = Math.sin(phiCenter) * Math.sin(phi) + Math.cos(phiCenter) * Math.cos(phi) * Math.cos(lambda);
+                return cosDist > 0; // visible hemisphere
+            }
+
+            // ── Projection Toggle ──
+            const projToggleBtn = document.getElementById('proj-toggle-btn');
+            const projLabel = document.getElementById('proj-label');
+            const projIcon = document.getElementById('proj-icon');
+
+            projToggleBtn.addEventListener('click', () => {
+                if (currentProjectionMode === 'mercator') {
+                    currentProjectionMode = 'orthographic';
+                    projection = projectionOrtho;
+                    projLabel.textContent = 'GLOBE 3D';
+                    projIcon.setAttribute('data-lucide', 'globe-2');
+                    lucide.createIcons();
+
+                    // Center globe on current ISS position
+                    if (trailData.length > 0) {
+                        const latest = trailData[trailData.length - 1];
+                        globeRotation = [-latest[0], -latest[1]];
+                        projectionOrtho.rotate(globeRotation);
+                    }
+
+                    fitProjection();
+                    globeOcean.style("display", "block");
+                    globeGraticule.style("display", "block");
+                    globeAtmosphere.style("display", "block");
+                    applyGlobeInteraction();
+                    addLog("SYS: PROJECTION SWITCHED TO ORTHOGRAPHIC (3D GLOBE)");
+                } else {
+                    currentProjectionMode = 'mercator';
+                    projection = projectionMercator;
+                    projLabel.textContent = 'MERCATOR';
+                    projIcon.setAttribute('data-lucide', 'map');
+                    lucide.createIcons();
+
+                    fitProjection();
+                    globeOcean.style("display", "none");
+                    globeGraticule.style("display", "none");
+                    globeAtmosphere.style("display", "none");
+                    applyMercatorInteraction();
+                    addLog("SYS: PROJECTION SWITCHED TO MERCATOR (FLAT MAP)");
+                }
+                redrawAllPaths();
+            });
+
+            // ── Fullscreen Toggle ──
+            const mapPanel = document.getElementById('map-panel');
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            const fsIcon = document.getElementById('fs-icon');
+
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    mapPanel.requestFullscreen().then(() => {
+                        fsIcon.setAttribute('data-lucide', 'minimize');
+                        lucide.createIcons();
+                        setTimeout(() => {
+                            width = mapContainer.clientWidth;
+                            height = mapContainer.clientHeight;
+                            fitProjection();
+                            redrawAllPaths();
+                        }, 100);
+                    }).catch(() => { });
+                } else {
+                    document.exitFullscreen().then(() => {
+                        fsIcon.setAttribute('data-lucide', 'maximize');
+                        lucide.createIcons();
+                        setTimeout(() => {
+                            width = mapContainer.clientWidth;
+                            height = mapContainer.clientHeight;
+                            fitProjection();
+                            redrawAllPaths();
+                        }, 100);
+                    });
+                }
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    fsIcon.setAttribute('data-lucide', 'maximize');
+                    lucide.createIcons();
+                    setTimeout(() => {
+                        width = mapContainer.clientWidth;
+                        height = mapContainer.clientHeight;
+                        redrawAllPaths();
+                    }, 100);
+                }
+            });
+
+            // ── Re-center Map ──
+            document.getElementById('re-center-btn').addEventListener('click', () => {
+                let centerLon = null;
+                let centerLat = null;
+
+                // Get coordinates of active target
+                if (activeTarget === '25544' && trailData.length > 0) {
+                    centerLon = trailData[trailData.length - 1][0];
+                    centerLat = trailData[trailData.length - 1][1];
+                } else {
+                    const satInfo = satData.find(s => s.noradId === activeTarget);
+                    if (satInfo) {
+                        centerLon = satInfo.longitude;
+                        centerLat = satInfo.latitude;
+                    }
+                }
+
+                if (centerLon !== null && centerLat !== null) {
+                    if (currentProjectionMode === 'mercator') {
+                        const coords = projection([centerLon, centerLat]);
+                        if (coords) {
+                            const scale = INITIAL_MAP_ZOOM;
+                            const t = d3.zoomIdentity
+                                .translate(width / 2 - coords[0] * scale, height / 2 - coords[1] * scale)
+                                .scale(scale);
+
+                            svg.transition()
+                                .duration(750)
+                                .call(zoom.transform, t);
+                            userAdjustedZoom = false; // Reset so auto-follow works if implemented
+                        }
+                    } else {
+                        // Globe 3D rotation
+                        d3.transition()
+                            .duration(750)
+                            .tween("rotate", function () {
+                                const r = d3.interpolate(projectionOrtho.rotate(), [-centerLon, -centerLat]);
+                                return function (t) {
+                                    projectionOrtho.rotate(r(t));
+                                    redrawAllPaths();
+                                };
+                            });
+                        svg.transition()
+                            .duration(750)
+                            .call(globeZoom.transform, d3.zoomIdentity); // Reset zoom
+
+                        globeAutoRotateTimer = setTimeout(() => { globeAutoRotate = true; }, 8000);
+                    }
+                    addLog(`SYS: RE-CENTERED MAP ON NORAD ${activeTarget}`);
+                }
+            });
+
+            // ── Settings Panel ──
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsPanel = document.getElementById('settings-panel');
+
+            settingsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                settingsPanel.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+                    settingsPanel.classList.add('hidden');
+                }
+            });
+
+            // ── Object Visibility Toggles ──
+            const visibilityState = {
+                iss: true,
+                tiangong: true,
+                hubble: true,
+                visiting: true,
+                starlink: false,
+            };
+
+            let NORAD_VISIBILITY_MAP = {
+                '48274': 'tiangong',
+                '20580': 'hubble',
+            };
+
+            document.getElementById('toggle-iss').addEventListener('change', (e) => {
+                visibilityState.iss = e.target.checked;
+                issGroup.style('display', visibilityState.iss ? 'block' : 'none');
+                trailPath.style('display', visibilityState.iss ? null : 'none');
+                futureTrailPath.style('display', visibilityState.iss ? null : 'none');
+                footprintPath.style('display', visibilityState.iss ? null : 'none');
+                addLog(`SYS: ISS VISIBILITY ${visibilityState.iss ? 'ENABLED' : 'DISABLED'}`);
+            });
+
+            document.getElementById('toggle-tiangong').addEventListener('change', (e) => {
+                visibilityState.tiangong = e.target.checked;
+                renderSatMarkers();
+                addLog(`SYS: TIANGONG VISIBILITY ${visibilityState.tiangong ? 'ENABLED' : 'DISABLED'}`);
+            });
+
+            document.getElementById('toggle-hubble').addEventListener('change', (e) => {
+                visibilityState.hubble = e.target.checked;
+                renderSatMarkers();
+                addLog(`SYS: HUBBLE VISIBILITY ${visibilityState.hubble ? 'ENABLED' : 'DISABLED'}`);
+            });
+
+            document.getElementById('toggle-visiting').addEventListener('change', (e) => {
+                visibilityState.visiting = e.target.checked;
+                renderSatMarkers();
+                addLog(`SYS: VISITING SPACECRAFT VISIBILITY ${visibilityState.visiting ? 'ENABLED' : 'DISABLED'}`);
+            });
+
+            document.getElementById('toggle-starlink').addEventListener('change', (e) => {
+                visibilityState.starlink = e.target.checked;
+                if (visibilityState.starlink) {
+                    fetchStarlink();
+                } else {
+                    starlinkGroup.selectAll('*').remove();
+                    addLog('SYS: STARLINK CONSTELLATION HIDDEN');
+                }
+            });
+
+            // ── Starlink Constellation Layer ──
+            const starlinkGroup = g.insert('g', '.sat-markers').attr('class', 'starlink-layer');
+            let starlinkPositions = [];
+
+            function renderStarlink() {
+                starlinkGroup.selectAll('circle').remove();
+                if (!visibilityState.starlink || starlinkPositions.length === 0) return;
+
+                for (const pos of starlinkPositions) {
+                    const coords = projection([pos[1], pos[0]]); // [lon, lat]
+                    if (!coords) continue;
+                    if (currentProjectionMode === 'orthographic' && !isPointVisible([pos[1], pos[0]])) continue;
+
+                    starlinkGroup.append('circle')
+                        .attr('cx', coords[0])
+                        .attr('cy', coords[1])
+                        .attr('r', 0.8)
+                        .attr('fill', '#fbbf24')
+                        .attr('opacity', 0.6);
+                }
+            }
+
+            async function fetchStarlink() {
+                try {
+                    addLog('SYS: FETCHING STARLINK CONSTELLATION DATA...');
+                    const res = await fetch('/api/starlink');
+                    if (!res.ok) throw new Error('Starlink API failed');
+                    const data = await res.json();
+                    starlinkPositions = data.positions;
+                    document.getElementById('starlink-count').textContent = `(${data.count})`;
+                    renderStarlink();
+                    addLog(`SYS: STARLINK CONSTELLATION LOADED — ${data.count} SATELLITES ACTIVE`);
+                } catch (e) {
+                    console.error('Starlink fetch failed:', e);
+                    addLog('ERR: STARLINK DATA UNAVAILABLE', 'error');
+                }
+            }
 
             // Handle Window Resizing gracefully
             window.addEventListener('resize', () => {
                 width = mapContainer.clientWidth;
                 height = mapContainer.clientHeight;
                 fitProjection();
-                zoom.translateExtent([[-width, -height], [width * 2, height * 2]]);
-                g.selectAll("path.country").attr("d", path);
-                
-                renderLineSafe(trailData, trailPath);
-                
-                // Safely redraw the dynamically fetched shapes on resize
-                if (futureCoordsGlobal.length > 0) renderLineSafe(futureCoordsGlobal, futureTrailPath);
-                if (lastTerminatorGeo) terminatorPath.attr("d", path);
-                if (lastFootprintGeo) footprintPath.attr("d", path);
-                
-                if (trailData.length > 0) {
-                    const latest = trailData[trailData.length-1];
-                    const coords = projection(latest);
-                    if(coords) issGroup.attr("transform", `translate(${coords[0]},${coords[1]})`);
+
+                if (currentProjectionMode === 'mercator') {
+                    zoom.translateExtent([[-width, -height], [width * 2, height * 2]]);
+                    if (!userAdjustedZoom) {
+                        svg.call(zoom.transform, getCenteredZoomTransform(INITIAL_MAP_ZOOM));
+                    }
                 }
 
-                if (!userAdjustedZoom) {
-                    svg.call(zoom.transform, getCenteredZoomTransform(INITIAL_MAP_ZOOM));
-                }
+                redrawAllPaths();
             });
 
-            // Antimeridian-safe line renderer
+            // Antimeridian-safe line renderer (works for both projections)
             function renderLineSafe(coords, pathElement) {
+                if (currentProjectionMode === 'orthographic') {
+                    // For globe, use D3's built-in clipping via geoPath
+                    const geo = { type: "LineString", coordinates: coords };
+                    pathElement.attr("d", path(geo));
+                    return;
+                }
+                // Mercator: manual antimeridian splitting
                 let segments = [];
                 let current = [];
-                for(let i=0; i<coords.length; i++) {
-                    if(i > 0 && Math.abs(coords[i][0] - coords[i-1][0]) > 180) {
+                for (let i = 0; i < coords.length; i++) {
+                    if (i > 0 && Math.abs(coords[i][0] - coords[i - 1][0]) > 180) {
                         segments.push(current);
                         current = [];
                     }
                     current.push(coords[i]);
                 }
-                if(current.length > 0) segments.push(current);
-                
+                if (current.length > 0) segments.push(current);
+
                 const lineGen = d3.line().x(d => projection(d)[0]).y(d => projection(d)[1]).curve(d3.curveBasis);
                 let dString = segments.map(seg => lineGen(seg)).join(" ");
                 pathElement.attr("d", dString);
@@ -456,7 +1087,7 @@
             function getAntiSolarPoint(date) {
                 const hoursUTC = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
                 let solarLon = 180 - (hoursUTC * 15);
-                
+
                 const start = new Date(date.getFullYear(), 0, 0);
                 const diff = date - start;
                 const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -509,18 +1140,18 @@
                     const res = await fetch('http://api.open-notify.org/astros.json');
                     const data = await res.json();
                     updateCrewUI(data.people.filter(p => p.craft === 'ISS'));
-                } catch(err) {
+                } catch (err) {
                     addLog("WARN: LIVE MANIFEST UPLINK BLOCKED. USING CACHED.", "warn");
                     // Fallback to recent known crew in case of mixed-content blocking
                     updateCrewUI([
-                        {name: "Oleg Kononenko"}, {name: "Nikolai Chub"}, 
-                        {name: "Tracy Caldwell Dyson"}, {name: "Matthew Dominick"},
-                        {name: "Michael Barratt"}, {name: "Jeanette Epps"},
-                        {name: "Alexander Grebenkin"}
+                        { name: "Oleg Kononenko" }, { name: "Nikolai Chub" },
+                        { name: "Tracy Caldwell Dyson" }, { name: "Matthew Dominick" },
+                        { name: "Michael Barratt" }, { name: "Jeanette Epps" },
+                        { name: "Alexander Grebenkin" }
                     ]);
                 }
             }
-            
+
             function updateCrewUI(crew) {
                 const crewList = document.getElementById('crew-list');
                 crewList.innerHTML = '';
@@ -536,18 +1167,18 @@
                 // Align to 5-minute buckets so all clients can share cached proxy responses
                 const currentBucket = Math.floor(currentTs / 300);
                 if (currentBucket === lastFutureBucket) return;
-                
+
                 try {
                     let timestamps = [];
                     const bucketStart = currentBucket * 300;
-                    for(let i=1; i<=15; i++) timestamps.push(bucketStart + (i * 300)); // Every 5 mins for 75 mins
+                    for (let i = 1; i <= 15; i++) timestamps.push(bucketStart + (i * 300)); // Every 5 mins for 75 mins
                     const res = await fetch(`/api/iss-positions?timestamps=${timestamps.join(',')}`);
                     if (!res.ok) return;
                     const data = await res.json();
-                    
+
                     let futureCoords = data.map(d => [d.longitude, d.latitude]);
-                    if (trailData.length > 0) futureCoords.unshift(trailData[trailData.length-1]);
-                    
+                    if (trailData.length > 0) futureCoords.unshift(trailData[trailData.length - 1]);
+
                     futureCoordsGlobal = futureCoords;
                     renderLineSafe(futureCoordsGlobal, futureTrailPath);
                     lastFutureBucket = currentBucket;
@@ -561,7 +1192,7 @@
                 const entry = document.createElement('div');
                 const time = new Date().toISOString().split('T')[1].substring(0, 8);
                 let color = type === 'error' ? 'text-red-400' : type === 'warn' ? 'text-yellow-400' : 'text-cyan-400';
-                
+
                 entry.innerHTML = `<span class="text-gray-600 mr-2">[${time}]</span><span class="${color}">${msg}</span>`;
                 ui.log.appendChild(entry);
                 ui.log.scrollTop = ui.log.scrollHeight; // Auto-scroll
@@ -629,8 +1260,8 @@
                 isLive = live;
                 ui.statusText.innerText = live ? "LIVE" : "SIMULATION";
                 ui.statusText.className = live ? "text-green-500 font-bold tracking-wider text-sm" : "text-yellow-500 font-bold tracking-wider text-sm";
-                ui.statusIndicator.className = live 
-                    ? "w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse" 
+                ui.statusIndicator.className = live
+                    ? "w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e] animate-pulse"
                     : "w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_#eab308] animate-pulse";
             }
 
@@ -640,35 +1271,40 @@
                 const alt = data.altitude;
                 const vel = data.velocity;
 
-                // Numbers
-                ui.altVal.innerText = alt.toFixed(2);
-                ui.velVal.innerText = vel.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                ui.mapLat.innerText = lat.toFixed(4).padStart(8, ' ');
-                ui.mapLon.innerText = lon.toFixed(4).padStart(9, ' ');
+                // Only update telemetry widgets if ISS is the active target
+                const updateTelemetry = (activeTarget === '25544');
 
-                // New Real Data Fields
-                if (data.visibility) {
-                    const isDay = data.visibility === 'daylight';
-                    ui.visVal.innerText = data.visibility.toUpperCase();
-                    ui.visVal.className = `text-3xl font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] ${isDay ? 'text-yellow-400' : 'text-indigo-400'}`;
-                    
-                    // Update Lucide icons dynamically by swapping the HTML entirely 
-                    const iconName = isDay ? 'sun' : 'moon';
-                    if (ui.visIconWrapper.dataset.current !== iconName) {
-                        ui.visIconWrapper.dataset.current = iconName;
-                        ui.visIconWrapper.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
-                        ui.visIconBgWrapper.innerHTML = `<i data-lucide="${iconName}" class="w-24 h-24"></i>`;
-                        lucide.createIcons();
+                if (updateTelemetry) {
+                    // Numbers
+                    ui.altVal.innerText = alt.toFixed(2);
+                    ui.velVal.innerText = vel.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    ui.mapLat.innerText = lat.toFixed(4).padStart(8, ' ');
+                    ui.mapLon.innerText = lon.toFixed(4).padStart(9, ' ');
+
+                    // New Real Data Fields
+                    if (data.visibility) {
+                        const isDay = data.visibility === 'daylight';
+                        ui.visVal.innerText = data.visibility.toUpperCase();
+                        ui.visVal.className = `text-3xl font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] ${isDay ? 'text-yellow-400' : 'text-indigo-400'}`;
+
+                        // Update Lucide icons dynamically by swapping the HTML entirely 
+                        const iconName = isDay ? 'sun' : 'moon';
+                        if (ui.visIconWrapper.dataset.current !== iconName) {
+                            ui.visIconWrapper.dataset.current = iconName;
+                            ui.visIconWrapper.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
+                            ui.visIconBgWrapper.innerHTML = `<i data-lucide="${iconName}" class="w-24 h-24"></i>`;
+                            lucide.createIcons();
+                        }
                     }
-                }
-                
-                if (data.footprint) {
-                    ui.footprintVal.innerText = (data.footprint).toLocaleString('en-US', {maximumFractionDigits: 0});
-                }
 
-                // Altitude Progress Bar (~400km to 430km bounds)
-                const altPercent = Math.max(0, Math.min(100, ((alt - 390) / 40) * 100));
-                ui.altBar.style.width = `${altPercent}%`;
+                    if (data.footprint) {
+                        ui.footprintVal.innerText = (data.footprint).toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    }
+
+                    // Altitude Progress Bar (~400km to 430km bounds)
+                    const altPercent = Math.max(0, Math.min(100, ((alt - 390) / 40) * 100));
+                    ui.altBar.style.width = `${altPercent}%`;
+                } // end if (updateTelemetry)
 
                 // Calculate Day/Night Terminator
                 const antiSolar = getAntiSolarPoint(new Date(data.timestamp * 1000));
@@ -686,18 +1322,29 @@
                 fetchFutureTrajectory(data.timestamp);
 
                 // D3 Projection for ISS
+                // Keep trail history
+                trailData.push([lon, lat]);
+                if (trailData.length > maxTrailLength) trailData.shift();
+
+                // In globe mode, optionally auto-rotate to follow ISS (only if ISS is active target)
+                if (currentProjectionMode === 'orthographic' && globeAutoRotate && activeTarget === '25544') {
+                    globeRotation = [-lon, -lat];
+                    projectionOrtho.rotate(globeRotation);
+                    redrawAllPaths();
+                } else {
+                    renderLineSafe(trailData, trailPath);
+                }
+
                 const coords = projection([lon, lat]);
                 if (coords) {
-                    issGroup.style("display", "block")
-                        .transition()
-                        .duration(1900)
-                        .attr("transform", `translate(${coords[0]},${coords[1]})`);
-                    
-                    // Keep trail history
-                    trailData.push([lon, lat]);
-                    if (trailData.length > maxTrailLength) trailData.shift();
-                    
-                    renderLineSafe(trailData, trailPath);
+                    const visible = currentProjectionMode === 'mercator' || isPointVisible([lon, lat]);
+                    issGroup.style("display", visible ? "block" : "none");
+                    if (visible) {
+                        issGroup
+                            .transition()
+                            .duration(1900)
+                            .attr("transform", `translate(${coords[0]},${coords[1]})`);
+                    }
                 }
             }
 
@@ -722,29 +1369,29 @@
                     const res = await fetch('/api/iss');
                     if (!res.ok) throw new Error('API limits reached');
                     const data = await res.json();
-                    
-                    if(!isLive) setConnectionStatus(true);
+
+                    if (!isLive) setConnectionStatus(true);
                     renderDashboard(data);
                     consecutivePollFailures = 0;
-                    
+
                     // Use actual timestamp provided by the ISS API
                     if (shouldEmitTelemetryLog()) {
                         const timeStr = new Date(data.timestamp * 1000).toLocaleTimeString('en-US', { timeZone: 'UTC' });
                         addLog(`UPLINK RECV: LAT ${data.latitude.toFixed(4)} LON ${data.longitude.toFixed(4)} @ ${timeStr} UTC`);
                         lastTelemetryLogAtMs = Date.now();
                     }
-                    
+
                 } catch (err) {
                     consecutivePollFailures += 1;
 
                     // Failsafe Mock Mode
                     if (isLive) addLog("ERR: API CONNECTION LOST. SWITCHING TO SIMULATION.", "error");
                     setConnectionStatus(false);
-                    
-                    mockLon += 0.08; 
+
+                    mockLon += 0.08;
                     if (mockLon > 180) mockLon = -180;
                     let mockLat = 50 * Math.sin(mockLon * Math.PI / 180); // Sinusoidal orbit approx
-                    
+
                     const mockData = {
                         latitude: mockLat,
                         longitude: mockLon,
@@ -754,7 +1401,7 @@
                         footprint: 4500,
                         timestamp: Math.floor(Date.now() / 1000) // Essential for the shadow math
                     };
-                    
+
                     renderDashboard(mockData);
                     addLog(`SIM GEN: LAT ${mockLat.toFixed(4)} LON ${mockLon.toFixed(4)}`, "warn");
                 }
@@ -783,17 +1430,407 @@
             });
 
             // ----------------------------------------------------
+            // SATELLITE TRACKING LOGIC
+            // ----------------------------------------------------
+
+            // SVG icon builders per satellite type
+            function drawSatIcon(parent, sat) {
+                const iconG = parent.append('g');
+                if (sat.noradId === '48274') {
+                    // TIANGONG — H-shaped station (T-shape core + panels)
+                    iconG.append('rect').attr('x', -6).attr('y', -0.5).attr('width', 12).attr('height', 1).attr('fill', sat.color);
+                    iconG.append('rect').attr('x', -1).attr('y', -4).attr('width', 2).attr('height', 8).attr('rx', 0.5).attr('fill', sat.color);
+                    // Solar wings
+                    iconG.append('rect').attr('x', -8).attr('y', -2.5).attr('width', 2).attr('height', 5).attr('rx', 0.3).attr('fill', sat.color).attr('opacity', 0.8);
+                    iconG.append('rect').attr('x', 6).attr('y', -2.5).attr('width', 2).attr('height', 5).attr('rx', 0.3).attr('fill', sat.color).attr('opacity', 0.8);
+                } else if (sat.noradId === '20580') {
+                    // HUBBLE — telescope cylinder + solar panels
+                    iconG.append('rect').attr('x', -3).attr('y', -5).attr('width', 6).attr('height', 10).attr('rx', 2).attr('fill', sat.color).attr('opacity', 0.9);
+                    // Aperture door (top)
+                    iconG.append('line').attr('x1', -2.5).attr('y1', -5).attr('x2', 2.5).attr('y2', -5).attr('stroke', '#fff').attr('stroke-width', 0.8);
+                    // Solar panels
+                    iconG.append('rect').attr('x', -8).attr('y', -1).attr('width', 4.5).attr('height', 2).attr('rx', 0.3).attr('fill', sat.color).attr('opacity', 0.7);
+                    iconG.append('rect').attr('x', 3.5).attr('y', -1).attr('width', 4.5).attr('height', 2).attr('rx', 0.3).attr('fill', sat.color).attr('opacity', 0.7);
+                } else if (sat.type === 'capsule') {
+                    // CAPSULE (Dragon/Starliner)
+                    iconG.append('path').attr('d', 'M-2,3 L2,3 L3,-1 L1,-4 L-1,-4 L-3,-1 Z').attr('fill', sat.color).attr('opacity', 0.9);
+                } else if (sat.type === 'capsule_winged') {
+                    // WINGED CAPSULE (Soyuz/Shenzhou)
+                    iconG.append('rect').attr('x', -1.5).attr('y', -4).attr('width', 3).attr('height', 8).attr('rx', 1).attr('fill', sat.color).attr('opacity', 0.9);
+                    iconG.append('line').attr('x1', -4.5).attr('y1', 0).attr('x2', -1.5).attr('y2', 0).attr('stroke', sat.color).attr('stroke-width', 1.5);
+                    iconG.append('line').attr('x1', 1.5).attr('y1', 0).attr('x2', 4.5).attr('y2', 0).attr('stroke', sat.color).attr('stroke-width', 1.5);
+                } else if (sat.type === 'cargo') {
+                    // CARGO CYLINDER (Progress/Cygnus)
+                    iconG.append('rect').attr('x', -2).attr('y', -4).attr('width', 4).attr('height', 8).attr('rx', 0.5).attr('fill', sat.color);
+                    iconG.append('circle').attr('cx', 0).attr('cy', -4).attr('r', 2).attr('fill', sat.color);
+                } else {
+                    // Fallback — simple triangle
+                    iconG.append('polygon').attr('points', '0,-4 3.5,3 -3.5,3').attr('fill', sat.color).attr('opacity', 0.9);
+                }
+                iconG.attr('filter', `drop-shadow(0 0 4px ${sat.color})`);
+                return iconG;
+            }
+
+            function renderSatMarkers() {
+                satMarkersGroup.selectAll('g.sat-marker').remove();
+                for (const sat of satData) {
+                    // Check visibility toggle
+                    const visKey = NORAD_VISIBILITY_MAP[sat.noradId];
+                    if (visKey && !visibilityState[visKey]) continue;
+                    const lonLat = [sat.longitude, sat.latitude];
+                    const coords = projection(lonLat);
+                    if (!coords) continue;
+                    const visible = currentProjectionMode === 'mercator' || isPointVisible(lonLat);
+                    if (!visible) continue;
+
+                    const mg = satMarkersGroup.append('g')
+                        .attr('class', 'sat-marker')
+                        .attr('transform', `translate(${coords[0]},${coords[1]})`)
+                        .style('--sat-color', sat.color);
+
+                    // Active target ring (only for selected target)
+                    mg.append('circle')
+                        .attr('class', 'active-target-ring')
+                        .attr('r', 14)
+                        .style('display', activeTarget === sat.noradId ? 'block' : 'none');
+
+                    // Pulsing ring
+                    mg.append('circle').attr('r', 6).attr('fill', 'none')
+                        .attr('stroke', sat.color).attr('stroke-width', 0.8).attr('opacity', 0.4)
+                        .append('animate').attr('attributeName', 'r').attr('values', '3;12')
+                        .attr('dur', '2.5s').attr('repeatCount', 'indefinite');
+                    mg.append('circle').attr('r', 6).attr('fill', 'none')
+                        .attr('stroke', sat.color).attr('stroke-width', 0.8)
+                        .append('animate').attr('attributeName', 'opacity').attr('values', '0.5;0')
+                        .attr('dur', '2.5s').attr('repeatCount', 'indefinite');
+
+                    // Unique SVG icon
+                    drawSatIcon(mg, sat);
+
+                    // Label
+                    mg.append('text').attr('class', 'sat-label')
+                        .attr('x', 10).attr('y', -5)
+                        .text(sat.name);
+
+                    // Click to track
+                    const satId = sat.noradId;
+                    mg.on('click', (e) => { e.stopPropagation(); selectTrackingTarget(satId); });
+                }
+            }
+
+            let SAT_NORAD_MAP = {
+                '25544': { name: 'ISS (ZARYA)', color: '#00f3ff' },
+                '48274': { name: 'TIANGONG', color: '#ff6b6b' },
+                '20580': { name: 'HUBBLE', color: '#a78bfa' },
+            };
+
+            function selectTrackingTarget(noradId) {
+                if (activeTarget === noradId) return;
+                activeTarget = noradId;
+                const meta = SAT_NORAD_MAP[noradId] || { name: 'UNKNOWN', color: '#888' };
+
+                // Update header
+                document.getElementById('header-target').textContent = meta.name;
+                document.getElementById('header-norad').textContent = noradId;
+
+                // Show/hide active ring on ISS
+                issActiveRing.style('display', noradId === '25544' ? 'block' : 'none');
+
+                // If switching to a satellite, update telemetry from satData
+                if (noradId !== '25544') {
+                    const satInfo = satData.find(s => s.noradId === noradId);
+                    if (satInfo) {
+                        updateTelemetryFromSatellite(satInfo);
+                    }
+                }
+
+                // Center globe on the target
+                if (currentProjectionMode === 'orthographic') {
+                    if (noradId === '25544' && trailData.length > 0) {
+                        const latest = trailData[trailData.length - 1];
+                        projectionOrtho.rotate([-latest[0], -latest[1]]);
+                    } else {
+                        const satInfo = satData.find(s => s.noradId === noradId);
+                        if (satInfo) projectionOrtho.rotate([-satInfo.longitude, -satInfo.latitude]);
+                    }
+                    redrawAllPaths();
+                }
+
+                // Redraw to update active rings
+                renderSatMarkers();
+                addLog(`SYS: TRACKING TARGET CHANGED → ${meta.name} (NORAD ${noradId})`);
+            }
+
+            function updateTelemetryFromSatellite(sat) {
+                ui.altVal.innerText = sat.altitude.toFixed(2);
+                ui.velVal.innerText = sat.velocity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                ui.mapLat.innerText = sat.latitude.toFixed(4).padStart(8, ' ');
+                ui.mapLon.innerText = sat.longitude.toFixed(4).padStart(9, ' ');
+                if (sat.footprint) {
+                    ui.footprintVal.innerText = sat.footprint.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
+                // Satellite visibility is unknown from orbital data — show N/A
+                ui.visVal.innerText = 'N/A';
+                ui.visVal.className = 'text-3xl font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] text-cyan-400';
+
+                const altPercent = Math.max(0, Math.min(100, ((sat.altitude - 390) / 40) * 100));
+                ui.altBar.style.width = `${altPercent}%`;
+            }
+
+            async function fetchSatellites() {
+                try {
+                    const [resBase, resVisiting] = await Promise.all([
+                        fetch('/api/satellites'),
+                        fetch('/api/spacecraft')
+                    ]);
+
+                    if (!resBase.ok) return;
+                    satData = await resBase.json();
+
+                    if (resVisiting.ok) {
+                        const visitingData = await resVisiting.json();
+
+                        // Register dynamic visiting spacecraft
+                        for (const v of visitingData) {
+                            NORAD_VISIBILITY_MAP[v.noradId] = 'visiting';
+                            SAT_NORAD_MAP[v.noradId] = { name: v.name, color: v.color };
+                            satData.push(v);
+                        }
+                    }
+
+                    renderSatMarkers();
+
+                    // If a satellite is the active target, update telemetry
+                    if (activeTarget !== '25544') {
+                        const activeSat = satData.find(s => s.noradId === activeTarget);
+                        if (activeSat) updateTelemetryFromSatellite(activeSat);
+                    }
+                } catch (e) {
+                    console.error('Satellite fetch failed:', e);
+                }
+            }
+
+            // ----------------------------------------------------
+            // NEXT PASS PREDICTOR LOGIC
+            // ----------------------------------------------------
+            const passUI = {
+                setup: document.getElementById('pass-setup'),
+                data: document.getElementById('pass-data'),
+                locLabel: document.getElementById('pass-loc-label'),
+                countdown: document.getElementById('pass-countdown'),
+                maxEl: document.getElementById('pass-max-el'),
+                rise: document.getElementById('pass-rise'),
+                set: document.getElementById('pass-set'),
+                az: document.getElementById('pass-az'),
+                activeBanner: document.getElementById('pass-active-banner'),
+                noneMsg: document.getElementById('pass-none'),
+                countdownSection: document.getElementById('pass-countdown-section'),
+                details: document.getElementById('pass-details'),
+                upcoming: document.getElementById('pass-upcoming'),
+                passList: document.getElementById('pass-list'),
+            };
+
+            let savedUserLat = null;
+            let savedUserLon = null;
+            let nextPassData = null;
+            let passCountdownInterval = null;
+            const PASS_REFRESH_MS = 5 * 60 * 1000; // Refresh predictions every 5 min
+
+            function setUserLocation(lat, lon) {
+                savedUserLat = lat;
+                savedUserLon = lon;
+                localStorage.setItem('iss_user_lat', lat);
+                localStorage.setItem('iss_user_lon', lon);
+
+                // Show the location marker on the map
+                userLocationCoords = [lon, lat];
+                const uc = projection(userLocationCoords);
+                if (uc) {
+                    userLocGroup.style("display", "block")
+                        .attr("transform", `translate(${uc[0]},${uc[1]})`);
+                }
+
+                // Switch to data view
+                passUI.setup.classList.add('hidden');
+                passUI.data.classList.remove('hidden');
+                passUI.locLabel.textContent = `LAT ${lat.toFixed(2)}° LON ${lon.toFixed(2)}°`;
+
+                addLog(`SYS: OBSERVER LOCATION SET: ${lat.toFixed(4)}°, ${lon.toFixed(4)}°`);
+                fetchPassPredictions();
+            }
+
+            async function fetchPassPredictions() {
+                if (savedUserLat === null) return;
+                try {
+                    const res = await fetch(`/api/iss-pass?lat=${savedUserLat}&lon=${savedUserLon}`);
+                    if (!res.ok) throw new Error('API error');
+                    const data = await res.json();
+
+                    const now = Math.floor(Date.now() / 1000);
+                    // Find all upcoming or active passes
+                    const futurePasses = data.passes.filter(p => p.setTime > now);
+
+                    if (futurePasses.length === 0) {
+                        nextPassData = null;
+                        showNoPass();
+                        addLog("SYS: NO ISS PASSES PREDICTED IN NEXT 12 HOURS.");
+                    } else {
+                        nextPassData = futurePasses[0];
+                        showNextPass(nextPassData, futurePasses.slice(1));
+                        addLog(`SYS: ${futurePasses.length} PASS(ES) PREDICTED. NEXT AT ${formatTime(nextPassData.riseTime)} - MAX ELEV ${nextPassData.maxElevation}°`);
+                    }
+                } catch (e) {
+                    console.error('Pass prediction fetch failed:', e);
+                    addLog("WARN: PASS PREDICTION UPLINK FAILED.", "warn");
+                    nextPassData = null;
+                    showNoPass();
+                }
+            }
+
+            function formatTime(ts) {
+                return new Date(ts * 1000).toLocaleTimeString('en-US', {
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    hour12: false, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                });
+            }
+
+            function formatCountdown(seconds) {
+                if (seconds <= 0) return '00:00:00';
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = seconds % 60;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+
+            function azLabel(deg) {
+                const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+                return dirs[Math.round(deg / 22.5) % 16];
+            }
+
+            function showNextPass(pass, additionalPasses) {
+                passUI.maxEl.textContent = `${pass.maxElevation}°`;
+                passUI.rise.textContent = formatTime(pass.riseTime);
+                passUI.set.textContent = formatTime(pass.setTime);
+                passUI.az.textContent = `${pass.riseAzimuth}° ${azLabel(pass.riseAzimuth)} → ${pass.setAzimuth}° ${azLabel(pass.setAzimuth)}`;
+                passUI.countdownSection.classList.remove('hidden');
+                passUI.details.classList.remove('hidden');
+                passUI.noneMsg.classList.add('hidden');
+                startCountdown(pass);
+
+                // Show upcoming passes list
+                if (additionalPasses && additionalPasses.length > 0) {
+                    passUI.upcoming.classList.remove('hidden');
+                    passUI.passList.innerHTML = additionalPasses.slice(0, 5).map(p => {
+                        const riseStr = new Date(p.riseTime * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+                        return `<div class="flex justify-between text-cyan-600"><span>${riseStr}</span><span class="text-white">${p.maxElevation}° max</span></div>`;
+                    }).join('');
+                } else {
+                    passUI.upcoming.classList.add('hidden');
+                }
+            }
+
+            function showNoPass() {
+                passUI.countdownSection.classList.add('hidden');
+                passUI.details.classList.add('hidden');
+                passUI.activeBanner.classList.add('hidden');
+                passUI.noneMsg.classList.remove('hidden');
+                passUI.upcoming.classList.add('hidden');
+                passUI.countdown.textContent = '--:--:--';
+                clearInterval(passCountdownInterval);
+            }
+
+            function startCountdown(pass) {
+                clearInterval(passCountdownInterval);
+                passCountdownInterval = setInterval(() => {
+                    const now = Math.floor(Date.now() / 1000);
+                    if (now >= pass.riseTime && now <= pass.setTime) {
+                        // Pass is active!
+                        passUI.countdown.textContent = 'ACTIVE';
+                        passUI.countdown.classList.add('text-green-400');
+                        passUI.activeBanner.classList.remove('hidden');
+                    } else if (now < pass.riseTime) {
+                        // Countdown to rise
+                        passUI.countdown.textContent = formatCountdown(pass.riseTime - now);
+                        passUI.countdown.classList.remove('text-green-400');
+                        passUI.activeBanner.classList.add('hidden');
+                    } else {
+                        // Pass is over — refetch
+                        clearInterval(passCountdownInterval);
+                        passUI.activeBanner.classList.add('hidden');
+                        passUI.countdown.classList.remove('text-green-400');
+                        fetchPassPredictions();
+                    }
+                }, 1000);
+            }
+
+            // Button wiring
+            document.getElementById('btn-geolocate').addEventListener('click', () => {
+                if (!navigator.geolocation) {
+                    addLog("ERR: GEOLOCATION NOT AVAILABLE. USE MANUAL ENTRY.", "error");
+                    document.getElementById('manual-loc-form').classList.remove('hidden');
+                    return;
+                }
+                addLog("SYS: REQUESTING GEOLOCATION...");
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => setUserLocation(pos.coords.latitude, pos.coords.longitude),
+                    (err) => {
+                        addLog(`WARN: GEOLOCATION DENIED (${err.message}). USE MANUAL ENTRY.`, "warn");
+                        document.getElementById('manual-loc-form').classList.remove('hidden');
+                    },
+                    { timeout: 10000 }
+                );
+            });
+
+            document.getElementById('btn-manual-loc').addEventListener('click', () => {
+                document.getElementById('manual-loc-form').classList.toggle('hidden');
+            });
+
+            document.getElementById('btn-manual-submit').addEventListener('click', () => {
+                const lat = parseFloat(document.getElementById('manual-lat').value);
+                const lon = parseFloat(document.getElementById('manual-lon').value);
+                if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    addLog("ERR: INVALID COORDINATES.", "error");
+                    return;
+                }
+                setUserLocation(lat, lon);
+            });
+
+            document.getElementById('btn-change-loc').addEventListener('click', () => {
+                passUI.data.classList.add('hidden');
+                passUI.setup.classList.remove('hidden');
+                clearInterval(passCountdownInterval);
+                userLocGroup.style("display", "none");
+                userLocationCoords = null;
+            });
+
+            // Restore saved location from localStorage
+            function initPassPredictor() {
+                const storedLat = localStorage.getItem('iss_user_lat');
+                const storedLon = localStorage.getItem('iss_user_lon');
+                if (storedLat && storedLon) {
+                    setUserLocation(parseFloat(storedLat), parseFloat(storedLon));
+                }
+                // Periodic refresh
+                setInterval(fetchPassPredictions, PASS_REFRESH_MS);
+            }
+
+            // ----------------------------------------------------
             // BOOT SEQUENCE
             // ----------------------------------------------------
             addLog("SYSTEM BOOT SEQUENCE INITIATED...");
             addLog("INITIALIZING D3.JS PROJECTION...");
             addLog("ESTABLISHING UPLINK TO ISS (NORAD 25544)...");
+            addLog("TRACKING SATELLITES: TIANGONG, HUBBLE...");
             postTelemetryThrottleMessage();
-            
+
             fetchCrew();
             runPollLoop();
+            initPassPredictor();
+            fetchSatellites();
+            setInterval(fetchSatellites, 30000); // Refresh satellite positions every 30s
 
         });
     </script>
 </body>
+
 </html>
